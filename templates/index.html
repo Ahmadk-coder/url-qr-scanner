@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">فحص المواقع والأمان الرقمي</title>
+    <!-- خط تاجوال العربي والترابط الحديث -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- مكتبة الأيقونات FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* الهيدر العلوي */
+        header {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-area i {
+            font-size: 24px;
+            color: #3b82f6;
+        }
+
+        .logo-area span {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .slogan {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        .lang-btn {
+            background: #1e293b;
+            color: #fff;
+            border: 1px solid #334155;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .lang-btn:hover {
+            background: #334155;
+        }
+
+        /* المحتوى الرئيسي */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .main-icon {
+            font-size: 48px;
+            color: #2563eb;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 50px;
+        }
+
+        /* كروت الخيارات الرئيسية */
+        .cards-container {
+            display: flex;
+            gap: 30px;
+            max-width: 900px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 40px 30px;
+            flex: 1;
+            min-width: 350px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+
+        .card-icon-wrapper {
+            width: 70px;
+            height: 70px;
+            background: #eff6ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+
+        .card-icon-wrapper i {
+            font-size: 28px;
+            color: #2563eb;
+        }
+
+        .card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1e293b;
+        }
+
+        .card p {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background-color: #1e293b;
+            color: #ffffff;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-secondary:hover {
+            background-color: #0f172a;
+        }
+
+        /* الفوتر */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        /* النوافذ المنبثقة (Modals) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            position: relative;
+            text-align: right;
+        }
+
+        html[dir="ltr"] .modal-content {
+            text-align: left;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        html[dir="ltr"] .close-modal {
+            left: auto;
+            right: 20px;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #0f172a;
+        }
+
+        .modal-content input[type="text"],
+        .modal-content input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .modal-content input:focus {
+            border-color: #2563eb;
+        }
+
+        /* صندوق نتائج الفحص */
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .result-safe {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+
+        .result-danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        @media (max-width: 768px) {
+            .cards-container {
+                flex-direction: column;
+            }
+            .header-actions .slogan {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- الهيدر -->
+    <header>
+        <div class="logo-area">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span id="nav-title">فحص المواقع</span>
+        </div>
+        <div class="header-actions">
+            <span class="slogan" id="header-slogan">معاً لبيئة رقمية أكثر أماناً</span>
+            <button class="lang-btn" onclick="toggleLanguage()">EN</button>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main>
+        <div class="main-icon">
+            <i class="fa-solid fa-shield-check"></i>
+        </div>
+        <h1 id="main-heading">فحص المواقع</h1>
+        <p class="subtitle" id="main-subtitle">اختر الطريقة التي تريد استخدامها لفحص الموقع</p>
+
+        <div class="cards-container">
+            <!-- كرت فحص الرابط -->
+            <div class="card">
+                <div class="card-icon-wrapper">
+                    <i class="fa-solid fa-link"></i>
+                </div>
+                <h3 id="card1-title">كشف الموقع عن طريق الرابط</h3>
+                <p id="card1-desc">أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوهاً أو آمناً.</p>
+                <button class="btn-primary" onclick="openModal('urlModal')">
+                    <span id="card1-btn">بدء الفحص</span> <i class="fa-solid fa-arrow-left" id="card1-icon"></i>
+                </button>
+            </div>
+
+            <!-- كرت فحص الـ QR -->
+            <div class="card">
+                <div class="card-icon-wrapper">
+                    <i class="fa-solid fa-qrcode"></i>
+                </div>
+                <h3 id="card2-title">كشف الموقع عن طريق QR Code</h3>
+                <p id="card2-desc">قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوهاً أو آمناً.</p>
+                <button class="btn-secondary" onclick="openModal('qrModal')">
+                    <span id="card2-btn">بدء الفحص</span> <i class="fa-solid fa-arrow-left" id="card2-icon"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- الفوتر -->
+    <footer>
+        <span id="footer-text">© 2026 - نظام فحص المواقع والأمان الرقمي</span>
+    </footer>
+
+    <!-- نافذة فحص الرابط -->
+    <div id="urlModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('urlModal')">&times;</button>
+            <h3 id="modal-url-title">فحص رابط الموقع</h3>
+            <input type="text" id="urlInput" placeholder="أدخل الرابط هنا (مثل: https://example.com)">
+            <button class="btn-primary" onclick="submitUrlScan()" id="urlScanBtn">فحص الرابط الآن</button>
+            <div id="urlResult" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- نافذة فحص الـ QR -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('qrModal')">&times;</button>
+            <h3 id="modal-qr-title">فحص رمز الاستجابة السريعة (QR)</h3>
+            <input type="file" id="qrImageInput" accept="image/*">
+            <button class="btn-secondary" onclick="submitQrScan()" id="qrScanBtn">رفع وفحص الصورة</button>
+            <div id="qrResult" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- أكواد الجافاسكريبت للتفاعل وربط السيرفر -->
+    <script>
+        let currentLang = 'ar';
+
+        const translations = {
+            ar: {
+                pageTitle: "فحص المواقع والأمان الرقمي",
+                navTitle: "فحص المواقع",
+                headerSlogan: "معاً لبيئة رقمية أكثر أماناً",
+                mainHeading: "فحص المواقع",
+                mainSubtitle: "اختر الطريقة التي تريد استخدامها لفحص الموقع",
+                card1Title: "كشف الموقع عن طريق الرابط",
+                card1Desc: "أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوهاً أو آمناً.",
+                card1Btn: "بدء الفحص",
+                card2Title: "كشف الموقع عن طريق QR Code",
+                card2Desc: "قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوهاً أو آمناً.",
+                card2Btn: "بدء الفحص",
+                footerText: "© 2026 - نظام فحص المواقع والأمان الرقمي",
+                modalUrlTitle: "فحص رابط الموقع",
+                urlPlaceholder: "أدخل الرابط هنا (مثل: https://example.com)",
+                urlScanBtn: "فحص الرابط الآن",
+                modalQrTitle: "فحص رمز الاستجابة السريعة (QR)",
+                qrScanBtn: "رفع وفحص الصورة",
+                langBtnText: "EN"
+            },
+            en: {
+                pageTitle: "Website Security & URL Scanner",
+                navTitle: "Site Scanner",
+                headerSlogan: "Together for a Safer Digital Environment",
+                mainHeading: "Website Scanning",
+                mainSubtitle: "Choose the method you want to use to scan the website",
+                card1Title: "Scan via URL",
+                card1Desc: "Enter the website link you want to check to see if it is suspicious or safe.",
+                card1Btn: "Start Scan",
+                card2Title: "Scan via QR Code",
+                card2Desc: "Upload or scan a QR Code to check if it is suspicious or safe.",
+                card2Btn: "Start Scan",
+                footerText: "© 2026 - Website Security & Scanner System",
+                modalUrlTitle: "Scan Website URL",
+                urlPlaceholder: "Enter URL here (e.g., https://example.com)",
+                urlScanBtn: "Scan URL Now",
+                modalQrTitle: "Scan QR Code Image",
+                qrScanBtn: "Upload & Scan Image",
+                langBtnText: "AR"
+            }
+        };
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            const t = translations[currentLang];
+            const htmlTag = document.documentElement;
+
+            htmlTag.setAttribute('lang', currentLang);
+            htmlTag.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+
+            document.getElementById('page-title').innerText = t.pageTitle;
+            document.getElementById('nav-title').innerText = t.navTitle;
+            document.getElementById('header-slogan').innerText = t.headerSlogan;
+            document.getElementById('main-heading').innerText = t.mainHeading;
+            document.getElementById('main-subtitle').innerText = t.mainSubtitle;
+            document.getElementById('card1-title').innerText = t.card1Title;
+            document.getElementById('card1-desc').innerText = t.card1Desc;
+            document.getElementById('card1-btn').innerText = t.card1Btn;
+            document.getElementById('card2-title').innerText = t.card2Title;
+            document.getElementById('card2-desc').innerText = t.card2Desc;
+            document.getElementById('card2-btn').innerText = t.card2Btn;
+            document.getElementById('footer-text').innerText = t.footerText;
+            document.getElementById('modal-url-title').innerText = t.modalUrlTitle;
+            document.getElementById('urlInput').placeholder = t.urlPlaceholder;
+            document.getElementById('urlScanBtn').innerText = t.urlScanBtn;
+            document.getElementById('modal-qr-title').innerText = t.modalQrTitle;
+            document.getElementById('qrScanBtn').innerText = t.qrScanBtn;
+            document.querySelector('.lang-btn').innerText = t.langBtnText;
+
+            const arrowIcon1 = document.getElementById('card1-icon');
+            const arrowIcon2 = document.getElementById('card2-icon');
+            if (currentLang === 'en') {
+                arrowIcon1.className = "fa-solid fa-arrow-right";
+                arrowIcon2.className = "fa-solid fa-arrow-right";
+            } else {
+                arrowIcon1.className = "fa-solid fa-arrow-left";
+                arrowIcon2.className = "fa-solid fa-arrow-left";
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            // تفريغ النتائج عند الإغلاق
+            if(modalId === 'urlModal') {
+                document.getElementById('urlResult').style.display = 'none';
+                document.getElementById('urlInput').value = '';
+            } else {
+                document.getElementById('qrResult').style.display = 'none';
+                document.getElementById('qrImageInput').value = '';
+            }
+        }
+
+        // إرسال الرابط للباك اند (Flask)
+        async function submitUrlScan() {
+            const url = document.getElementById('urlInput').value.trim();
+            const resultBox = document.getElementById('urlResult');
+
+            if (!url) {
+                alert(currentLang === 'ar' ? "يرجى إدخال رابط صحيح" : "Please enter a valid URL");
+                return;
+            }
+
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = currentLang === 'ar' ? "جاري فحص الرابط..." : "Scanning URL...";
+            resultBox.className = "result-box";
+
+            try {
+                const response = await fetch('/api/scan-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    let isDanger = data.status.includes("مشبوه") || data.status.includes("Suspicious");
+                    resultBox.className = "result-box " + (isDanger ? "result-danger" : "result-safe");
+                    
+                    let htmlContent = `<strong>${data.status}</strong><br>${data.message}`;
+                    if (data.reasons && data.reasons.length > 0) {
+                        htmlContent += `<ul style="margin-top: 8px; padding-right: 20px;">`;
+                        data.reasons.forEach(r => htmlContent += `<li>${r}</li>`);
+                        htmlContent += `</ul>`;
+                    }
+                    resultBox.innerHTML = htmlContent;
+                } else {
+                    resultBox.className = "result-box result-danger";
+                    resultBox.innerHTML = data.error || "حدث خطأ ما";
+                }
+            } catch (error) {
+                resultBox.className = "result-box result-danger";
+                resultBox.innerHTML = "تعذر الاتصال بالخادم المحلي.";
+            }
+        }
+
+        // إرسال صورة الـ QR للباك اند (Flask)
+        async function submitQrScan() {
+            const fileInput = document.getElementById('qrImageInput');
+            const resultBox = document.getElementById('qrResult');
+
+            if (fileInput.files.length === 0) {
+                alert(currentLang === 'ar' ? "يرجى اختيار صورة أولاً" : "Please select an image first");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('qr_image', fileInput.files[0]);
+
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = currentLang === 'ar' ? "جاري قراءة وفحص الـ QR..." : "Decoding and scanning QR...";
+            resultBox.className = "result-box";
+
+            try {
+                const response = await fetch('/api/scan-qr', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    let isDanger = data.status.includes("مشبوه") || data.status.includes("Suspicious");
+                    resultBox.className = "result-box " + (isDanger ? "result-danger" : "result-safe");
+
+                    let htmlContent = `<strong>الرابط المستخرج:</strong> <span style="direction:ltr; display:inline-block;">${data.url}</span><br><br><strong>${data.status}</strong><br>${data.message}`;
+                    if (data.reasons && data.reasons.length > 0) {
+                        htmlContent += `<ul style="margin-top: 8px; padding-right: 20px;">`;
+                        data.reasons.forEach(r => htmlContent += `<li>${r}</li>`);
+                        htmlContent += `</ul>`;
+                    }
+                    resultBox.innerHTML = htmlContent;
+                } else {
+                    resultBox.className = "result-box result-danger";
+                    resultBox.innerHTML = data.error || "حدث خطأ ما";
+                }
+            } catch (error) {
+                resultBox.className = "result-box result-danger";
+                resultBox.innerHTML = "تعذر الاتصال بالخادم المحلي.";
+            }
+        }
+    </script>
+</body>
+</html>
