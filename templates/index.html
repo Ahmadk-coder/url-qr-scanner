@@ -109,7 +109,7 @@
                     </button>
                 </div>
 
-                <!-- Card 2: QR Code Check (أيقونة حديثة كلياً) -->
+                <!-- Card 2: QR Code Check -->
                 <div class="bg-white rounded-2xl p-8 border border-slate-200/80 card-shadow flex flex-col items-center text-center justify-between">
                     <div class="flex flex-col items-center">
                         <div class="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-2xl mb-6 shadow-md border border-slate-800">
@@ -189,9 +189,10 @@
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
 
+            <!-- تم تحديث الأيقونة الداخلية في النافذة هنا -->
             <div class="flex items-center space-x-3 rtl:space-x-reverse mb-6">
-                <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center">
-                    <i class="fa-solid fa-qrcode text-lg"></i>
+                <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-expand text-blue-400"></i>
                 </div>
                 <div>
                     <h3 id="qrModalTitle" class="text-lg font-bold text-slate-900">فحص رمز الاستجابة السريعة (QR Code)</h3>
@@ -392,6 +393,7 @@
             })
             .catch(err => {
                 document.getElementById('urlLoading').classList.add('hidden');
+                document.getElementById('urlInputForm').classList.add('hidden'); // Fix
                 document.getElementById('urlInputForm').classList.remove('hidden');
                 alert(currentLang === 'ar' ? 'تعذر الاتصال بالخادم الرئيسي.' : 'Failed to connect to the server.');
             });
