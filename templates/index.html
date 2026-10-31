@@ -3,155 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فحص المواقع - نظام كشف التصيد الاحتيالي</title>
+    <title>فحص المواقع</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Cairo', sans-serif; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
-        .navbar-custom { background-color: #0f172a; color: white; padding: 12px 20px; }
-        .card-custom { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 30px; transition: transform 0.2s; }
-        .card-custom:hover { transform: translateY(-3px); }
-        .icon-box { font-size: 2.5rem; color: #2563eb; margin-bottom: 15px; }
-        .btn-custom { background-color: #1e293b; color: white; border-radius: 8px; padding: 10px 20px; width: 100%; font-weight: bold; }
-        .btn-custom:hover { background-color: #0f172a; color: white; }
-        .btn-url { background-color: #2563eb; color: white; }
-        .btn-url:hover { background-color: #1d4ed8; color: white; }
+        body { background-color: #f8f9fa; font-family: 'Cairo', sans-serif; margin: 0; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; }
+        .navbar-custom { background-color: #0b1329; color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .navbar-brand { color: white; font-weight: bold; text-decoration: none; font-size: 1.1rem; }
+        .footer-custom { background-color: white; text-align: center; padding: 12px; color: #6c757d; font-size: 0.85rem; border-top: 1px solid #dee2e6; }
+        .card-box { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); padding: 35px 25px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+        .icon-circle { font-size: 2rem; color: #2563eb; margin-bottom: 20px; }
+        .btn-action { background-color: #0f172a; color: white; border-radius: 8px; padding: 8px 20px; font-weight: bold; width: 100%; border: none; }
+        .btn-action:hover { background-color: #1e293b; color: white; }
     </style>
 </head>
 <body>
 
-    <!-- الشريط العلوي -->
-    <nav class="navbar navbar-custom">
-        <div class="container-fluid">
-            <a class="navbar-brand text-white fw-bold" href="#"><i class="fas fa-shield-alt ms-2"></i> فحص المواقع</a>
-            <div>
-                <span class="badge bg-light text-dark ms-3">معاً لبيئة رقمية أكثر أماناً</span>
-                <button class="btn btn-sm btn-outline-light">EN</button>
-            </div>
+    <!-- الشريط العلوي الأصلي -->
+    <div class="navbar-custom">
+        <a class="navbar-brand" href="#"><i class="fas fa-shield-alt ms-2"></i>فحص المواقع</a>
+        <div class="d-flex align-items-center">
+            <span class="text-light small ms-3" id="sloganText">معاً لبيئة رقمية أكثر أماناً</span>
+            <button class="btn btn-sm btn-outline-light fw-bold" onclick="toggleLanguage()" id="langBtn">EN</button>
         </div>
-    </nav>
+    </div>
 
     <!-- المحتوى الرئيسي -->
-    <div class="container my-5">
+    <div class="container my-auto py-5">
         <div class="text-center mb-5">
-            <h1 class="fw-bold text-dark mb-2">فحص المواقع</h1>
-            <p class="text-muted">اختر الطريقة التي تريد استخدامها لفحص الموقع</p>
+            <h2 class="fw-bold text-dark mb-2" id="mainTitle">فحص المواقع</h2>
+            <p class="text-muted small" id="mainSub">اختر الطريقة التي تريد استخدامها لفحص الموقع</p>
         </div>
 
         <div class="row justify-content-center g-4">
-            <!-- بطاقة فحص QR Code -->
-            <div class="col-md-5">
-                <div class="card-custom text-center h-100 d-flex flex-column justify-content-between">
+            <!-- بطاقة QR Code -->
+            <div class="col-md-5 col-lg-4">
+                <div class="card-box">
                     <div>
-                        <div class="icon-box"><i class="fas fa-qrcode"></i></div>
-                        <h4 class="fw-bold mb-3">كشف الموقع عن طريق QR Code</h4>
-                        <p class="text-muted small">قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
+                        <div class="icon-circle"><i class="fas fa-qrcode"></i></div>
+                        <h5 class="fw-bold mb-2" id="qrCardTitle">كشف الموقع عن طريق QR Code</h5>
+                        <p class="text-muted small mb-3" id="qrCardDesc">قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
                         
-                        <!-- نموذج رفع الـ QR المخفي ويظهر عند الضغط -->
                         <div id="qrSection" class="mt-3 text-start" style="display: none;">
-                            <label class="form-label fw-bold small">اختر صورة الـ QR:</label>
+                            <label class="form-label fw-bold small" id="qrLabel">اختر صورة الـ QR:</label>
                             <input type="file" id="qrFile" class="form-control form-control-sm mb-2" accept="image/*">
-                            <button class="btn btn-custom btn-sm" onclick="checkQr()">تحليل الـ QR الآن</button>
+                            <button class="btn btn-action btn-sm" onclick="checkQr()" id="qrBtnAnalyze">تحليل الـ QR الآن</button>
                         </div>
                     </div>
                     <div class="mt-4">
-                        <button class="btn btn-custom" onclick="toggleQrSection()" id="qrToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
+                        <button class="btn btn-action" onclick="toggleQrSection()" id="qrToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
                     </div>
                 </div>
             </div>
 
-            <!-- بطاقة فحص الرابط -->
-            <div class="col-md-5">
-                <div class="card-custom text-center h-100 d-flex flex-column justify-content-between">
+            <!-- بطاقة الرابط -->
+            <div class="col-md-5 col-lg-4">
+                <div class="card-box">
                     <div>
-                        <div class="icon-box"><i class="fas fa-link"></i></div>
-                        <h4 class="fw-bold mb-3">كشف الموقع عن طريق الرابط</h4>
-                        <p class="text-muted small">أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
+                        <div class="icon-circle"><i class="fas fa-link"></i></div>
+                        <h5 class="fw-bold mb-2" id="urlCardTitle">كشف الموقع عن طريق الرابط</h5>
+                        <p class="text-muted small mb-3" id="urlCardDesc">أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
                         
-                        <!-- نموذج إدخال الرابط المخفي ويظهر عند الضغط -->
                         <div id="urlSection" class="mt-3 text-start" style="display: none;">
-                            <label class="form-label fw-bold small">أدخل الرابط:</label>
+                            <label class="form-label fw-bold small" id="urlFieldLabel">أدخل الرابط:</label>
                             <input type="text" id="urlInput" class="form-control form-control-sm mb-2" placeholder="https://example.com" dir="ltr" style="text-align: right;">
-                            <button class="btn btn-url btn-custom btn-sm" onclick="checkUrl()">فحص الرابط الآن</button>
+                            <button class="btn btn-action btn-sm" onclick="checkUrl()" id="urlBtnAnalyze">فحص الرابط الآن</button>
                         </div>
                     </div>
                     <div class="mt-4">
-                        <button class="btn btn-url btn-custom" onclick="toggleUrlSection()" id="urlToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
+                        <button class="btn btn-action" onclick="toggleUrlSection()" id="urlToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- منطقة عرض النتائج -->
+        <!-- عرض النتائج -->
         <div class="row justify-content-center mt-4">
-            <div class="col-md-10">
+            <div class="col-md-9 col-lg-8">
                 <div id="resultContainer"></div>
             </div>
         </div>
     </div>
 
     <!-- التذييل -->
-    <footer class="text-center py-3 text-muted small bg-white border-top">
+    <div class="footer-custom" id="footerText">
         © 2026 - نظام فحص المواقع والأمان الرقمي
-    </footer>
+    </div>
 
     <script>
-        function toggleQrSection() {
-            const section = document.getElementById('qrSection');
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
-        }
+        let currentLang = 'ar';
 
-        function toggleUrlSection() {
-            const section = document.getElementById('urlSection');
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function checkUrl() {
-            const url = document.getElementById('urlInput').value;
-            if(!url) { alert('الرجاء إدخال الرابط'); return; }
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            const htmlTag = document.documentElement;
             
-            fetch('/scan', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: url})
-            })
-            .then(res => res.json())
-            .then(data => {
-                let alertClass = data.status === 'Dangerous' ? 'alert-danger' : 'alert-success';
-                document.getElementById('resultContainer').innerHTML = `
-                    <div class="alert ${alertClass} shadow-sm">
-                        <h5 class="fw-bold">${data.category}</h5>
-                        <p class="mb-1">${data.message}</p>
-                        <small class="text-muted">${data.compliance_note || ''}</small>
-                    </div>
-                `;
-            });
-        }
+            if (currentLang === 'en') {
+                htmlTag.setAttribute('dir', 'ltr');
+                htmlTag.setAttribute('lang', 'en');
+                document.getElementById('langBtn').innerText = 'AR';
+                document.getElementById('sloganText').innerText = 'Together for a safer digital environment';
+                document.getElementById('mainTitle').innerText = 'Website Scanner';
+                document.getElementById('mainSub').innerText = 'Choose the method you want to use to scan the website';
+                
+                document.getElementById('qrCardTitle').innerText = 'Detect via QR Code';
+                document.getElementById('qrCardDesc').innerText = 'Scan QR Code to check if it is safe or malicious.';
+                document.getElementById('qrToggleBtn').innerHTML = 'Start Scan <i class="fas fa-arrow-right me-1"></i>';
+                document.getElementById('qrLabel').innerText = 'Select QR image:';
+                document.getElementById('qrBtnAnalyze').innerText = 'Analyze QR Now';
 
-        function checkQr() {
-            const fileInput = document.getElementById('qrFile').files[0];
-            if(!fileInput) { alert('الرجاء اختيار صورة الـ QR'); return; }
-
-            let formData = new FormData();
-            formData.append('file', fileInput);
-
-            fetch('/scan-qr', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                let alertClass = data.status === 'Dangerous' ? 'alert-danger' : 'alert-success';
-                document.getElementById('resultContainer').innerHTML = `
-                    <div class="alert ${alertClass} shadow-sm">
-                        <h5 class="fw-bold">${data.category}</h5>
-                        <p class="mb-1"><strong>الرابط المستخرج:</strong> <span dir="ltr">${data.extracted_url || 'غير متوفر'}</span></p>
-                        <p class="mb-1">${data.message}</p>
-                        <small class="text-muted">${data.compliance_note || ''}</small>
-                    </div>
-                `;
-            });
-        }
-    </script>
-</body>
-</html>
+                document.getElementById('urlCardTitle').innerText = 'Detect via URL';
+                document.getElementById('urlCardDesc').innerText = 'Enter the website URL to check if it is safe or malicious.';
+                document.getElementById('urlToggleBtn').innerHTML = 'Start Scan <i class="fas fa-arrow-right me-1"></i>';
+                document.getElementById('urlFieldLabel').innerText = 'Enter URL:';
+                document.getElementById('urlBtnAnalyze').innerText = 'Analyze URL Now';
+                
+                document.getElementById('footerText').innerText = '© 2026 - Website Scanner & Digital Security System';
+            } else {
+                htmlTag.setAttribute('dir', 'rtl');
+                htmlTag.setAttribute('lang', 'ar');
+                document.getElementById('langBtn').innerText = 'EN';
+                document.getElementById('sloganText').innerText = 'معاً لبيئة رقمية أكثر أماناً';
+                document.getElementById('mainTitle').innerText = 'فحص المواقع';
+                document.getElementById('mainSub').innerText = 'اختر الطريقة التي تريد استخدامها لفحص الموقع';
+                
+                document.getElementById('qrCardTitle').innerText = 'كشف الموقع عن طريق QR
