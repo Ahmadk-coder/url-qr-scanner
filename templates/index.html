@@ -112,11 +112,11 @@
                     </button>
                 </div>
 
-                <!-- Card 2: QR Code Check -->
+                <!-- Card 2: QR Code Check (تم تحديث الأيقونة فقط) -->
                 <div class="bg-white rounded-2xl p-8 border border-slate-200/80 card-shadow flex flex-col items-center text-center justify-between">
                     <div class="flex flex-col items-center">
-                        <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-2xl mb-6">
-                            <i class="fa-solid fa-qrcode"></i>
+                        <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-800 flex items-center justify-center text-2xl mb-6 border border-slate-200 shadow-inner">
+                            <i class="fa-solid fa-qrcode text-3xl"></i>
                         </div>
                         <h3 id="card2Title" class="text-xl font-bold text-slate-900 mb-3">كشف الموقع عن طريق QR Code</h3>
                         <p id="card2Desc" class="text-slate-500 text-sm leading-relaxed mb-8 px-2">
@@ -143,12 +143,10 @@
     <!-- Modal 1: URL Scanner Modal -->
     <div id="urlModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative">
-            <!-- Close Button -->
             <button onclick="closeModal('urlModal')" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
 
-            <!-- Modal Header -->
             <div class="flex items-center space-x-3 rtl:space-x-reverse mb-6">
                 <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
                     <i class="fa-solid fa-link text-lg"></i>
@@ -159,7 +157,6 @@
                 </div>
             </div>
 
-            <!-- Input Form -->
             <div id="urlInputForm" class="space-y-4">
                 <div>
                     <label id="urlLabel" class="block text-sm font-medium text-slate-700 mb-2">رابط الموقع (URL)</label>
@@ -181,13 +178,11 @@
                 </button>
             </div>
 
-            <!-- Loading State -->
             <div id="urlLoading" class="hidden py-8 text-center space-y-4">
                 <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
                 <p id="urlLoadingText" class="text-slate-600 font-medium text-sm">جاري تحليل الرابط والتحقق من الشهادات والسمعة...</p>
             </div>
 
-            <!-- Results Section -->
             <div id="urlResult" class="hidden space-y-4 pt-2"></div>
         </div>
     </div>
@@ -195,12 +190,10 @@
     <!-- Modal 2: QR Scanner Modal -->
     <div id="qrModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative">
-            <!-- Close Button -->
             <button onclick="closeModal('qrModal')" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
 
-            <!-- Modal Header -->
             <div class="flex items-center space-x-3 rtl:space-x-reverse mb-6">
                 <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center">
                     <i class="fa-solid fa-qrcode text-lg"></i>
@@ -211,9 +204,7 @@
                 </div>
             </div>
 
-            <!-- QR Options -->
             <div id="qrInputForm" class="space-y-4">
-                <!-- Dropzone / Upload area -->
                 <div onclick="document.getElementById('qrFileInput').click()" class="border-2 border-dashed border-slate-300 hover:border-slate-800 bg-slate-50 rounded-2xl p-6 text-center cursor-pointer transition">
                     <input type="file" id="qrFileInput" accept="image/*" class="hidden" onchange="handleQrUpload(event)">
                     <div class="w-12 h-12 rounded-full bg-slate-200 text-slate-600 mx-auto flex items-center justify-center text-xl mb-3">
@@ -223,7 +214,6 @@
                     <p id="qrUploadSub" class="text-xs text-slate-400 mt-1">يدعم صيغ PNG, JPG, JPEG</p>
                 </div>
 
-                <!-- Camera stream area -->
                 <div class="relative">
                     <button id="startCamBtn" onclick="toggleCamera()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 rtl:space-x-reverse">
                         <i class="fa-solid fa-camera"></i>
@@ -237,13 +227,11 @@
                 </div>
             </div>
 
-            <!-- Loading State -->
             <div id="qrLoading" class="hidden py-8 text-center space-y-4">
                 <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-transparent"></div>
                 <p id="qrLoadingText" class="text-slate-600 font-medium text-sm">جاري قراءة رمز الـ QR وفحص الرابط المستخرج...</p>
             </div>
 
-            <!-- QR Result -->
             <div id="qrResult" class="hidden space-y-4 pt-2"></div>
         </div>
     </div>
@@ -382,7 +370,6 @@
             stopCamera();
         }
 
-        // URL Checking Connected to Backend AI Model
         function processUrlCheck() {
             const urlInput = document.getElementById('targetUrl').value.trim();
             const t = i18n[currentLang];
@@ -415,7 +402,6 @@
             });
         }
 
-        // Render Security Result Card
         function renderResult(container, link, isSafe, backendData = null) {
             const t = i18n[currentLang];
             const category = backendData ? backendData.category : (isSafe ? "Verified Secure" : "Phishing / Malicious Link");
@@ -474,7 +460,6 @@
             }
         }
 
-        // QR Upload connected to Backend Route /scan-qr
         function handleQrUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -505,7 +490,6 @@
             });
         }
 
-        // Camera Logic
         let videoStream = null;
         function toggleCamera() {
             const container = document.getElementById('cameraContainer');
