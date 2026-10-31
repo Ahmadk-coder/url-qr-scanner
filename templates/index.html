@@ -3,193 +3,487 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فحص المواقع</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title id="pageTitle">فحص المواقع - منصة الأمان الرقمي</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Tajawal & Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- jsQR Library for real QR code parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Tajawal', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            navy: '#1e293b',
+                            darkHeader: '#1c2938',
+                            blue: '#2563eb',
+                            lightBlue: '#eff6ff',
+                            bgGray: '#f8fafc',
+                            cardBorder: '#e2e8f0',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Cairo', sans-serif; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; margin: 0; }
-        .navbar-custom { background-color: #111827; color: white; padding: 12px 30px; display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .brand-title { color: white; font-weight: bold; text-decoration: none; font-size: 1.1rem; }
-        .card-custom { background: #fafafa; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.02); padding: 40px 30px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
-        .icon-circle { width: 60px; height: 60px; background-color: #eff6ff; color: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 20px auto; }
-        .icon-circle-qr { width: 60px; height: 60px; background-color: #eff6ff; color: #1e293b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 20px auto; }
-        .btn-blue { background-color: #2563eb; color: white; border-radius: 8px; padding: 10px 20px; font-weight: bold; width: 100%; border: none; }
-        .btn-blue:hover { background-color: #1d4ed8; color: white; }
-        .btn-dark-custom { background-color: #1e293b; color: white; border-radius: 8px; padding: 10px 20px; font-weight: bold; width: 100%; border: none; }
-        .btn-dark-custom:hover { background-color: #0f172a; color: white; }
-        .footer-bar { background: white; text-align: center; padding: 15px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.85rem; }
+        body {
+            font-family: 'Tajawal', 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        .card-shadow:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        }
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+        }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col justify-between text-slate-800 antialiased">
 
-    <!-- الشريط العلوي المطابق للصورة -->
-    <div class="navbar-custom">
-        <div class="d-flex align-items-center">
-            <button class="btn btn-sm btn-outline-light fw-bold px-3 ms-3" id="langBtn" onclick="toggleLanguage()">EN</button>
-            <span class="text-light small" id="sloganText">معاً لبيئة رقمية أكثر أماناً</span>
-        </div>
-        <div>
-            <a class="brand-title" href="#"><i class="fas fa-shield-alt ms-2"></i>فحص المواقع</a>
-        </div>
-    </div>
-
-    <!-- المحتوى الرئيسي -->
-    <div class="container my-auto py-5">
-        <div class="text-center mb-5">
-            <div style="color: #2563eb; font-size: 2.5rem;" class="mb-3">
-                <i class="fas fa-shield-alt"></i>
-            </div>
-            <h2 class="fw-bold text-dark mb-2" id="mainTitle">فحص المواقع</h2>
-            <p class="text-muted small" id="mainSub">اختر الطريقة التي تريد استخدامها لفحص الموقع</p>
-        </div>
-
-        <div class="row justify-content-center g-4">
-            <!-- بطاقة كشف الموقع عن طريق الرابط -->
-            <div class="col-md-5 col-lg-4">
-                <div class="card-custom">
-                    <div>
-                        <div class="icon-circle"><i class="fas fa-link"></i></div>
-                        <h4 class="fw-bold mb-3 text-dark" id="urlTitle">كشف الموقع عن طريق الرابط</h4>
-                        <p class="text-muted small mb-4" id="urlDesc">أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
-                        
-                        <!-- صندوق إدخال الرابط المخفي -->
-                        <div id="urlSection" class="mt-3 text-start" style="display: none;">
-                            <label class="form-label fw-bold small" id="urlInputLabel">أدخل الرابط:</label>
-                            <input type="text" id="urlInput" class="form-control form-control-sm mb-2" placeholder="https://example.com" dir="ltr" style="text-align: right;">
-                            <button class="btn btn-blue btn-sm" onclick="checkUrl()" id="urlAnalyzeBtn">فحص الرابط الآن</button>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <button class="btn btn-blue" onclick="toggleUrlBox()" id="urlToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
-                    </div>
+    <!-- Top Navigation Header -->
+    <header class="bg-[#1c2938] text-white px-6 py-4 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <!-- Right/Left side logo & title -->
+            <div class="flex items-center space-x-3 rtl:space-x-reverse">
+                <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                    <i class="fa-solid fa-shield-halved text-lg"></i>
                 </div>
+                <h1 id="navBrand" class="text-xl font-bold tracking-tight">فحص المواقع</h1>
             </div>
-
-            <!-- بطاقة QR Code -->
-            <div class="col-md-5 col-lg-4">
-                <div class="card-custom">
-                    <div>
-                        <div class="icon-circle-qr"><i class="fas fa-qrcode"></i></div>
-                        <h4 class="fw-bold mb-3 text-dark" id="qrTitle">كشف الموقع عن طريق QR Code</h4>
-                        <p class="text-muted small mb-4" id="qrDesc">قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوباً أو آمناً.</p>
-                        
-                        <!-- صندوق رفع ملف الـ QR المخفي -->
-                        <div id="qrSection" class="mt-3 text-start" style="display: none;">
-                            <label class="form-label fw-bold small" id="qrFileLabel">اختر صورة الـ QR:</label>
-                            <input type="file" id="qrFile" class="form-control form-control-sm mb-2" accept="image/*">
-                            <button class="btn btn-dark-custom btn-sm" onclick="checkQr()" id="qrAnalyzeBtn">تحليل الـ QR الآن</button>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <button class="btn btn-dark-custom" onclick="toggleQrBox()" id="qrToggleBtn">بدء الفحص <i class="fas fa-arrow-left ms-1"></i></button>
-                    </div>
+            
+            <!-- Left/Right side actions (Slogan + Language Switcher) -->
+            <div class="flex items-center space-x-4 rtl:space-x-reverse">
+                <div id="navSlogan" class="text-slate-300 text-sm hidden md:block font-medium">
+                    معاً لبيئة رقمية أكثر أماناً
                 </div>
+                <button onclick="toggleLanguage()" class="bg-slate-700/60 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center gap-2">
+                    <i class="fa-solid fa-globe text-blue-400"></i>
+                    <span id="langBtnText">English</span>
+                </button>
             </div>
         </div>
+    </header>
 
-        <!-- منطقة عرض النتائج الذكية والأمنية -->
-        <div class="row justify-content-center mt-4">
-            <div class="col-md-9 col-lg-8">
-                <div id="resultContainer"></div>
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center px-4 py-12">
+        <div class="max-w-4xl w-full text-center">
+            
+            <!-- Main Shield Icon Header -->
+            <div class="mb-8 flex flex-col items-center">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg shadow-blue-500/20 mb-4">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h2 id="mainHeading" class="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">فحص المواقع</h2>
+                <p id="mainSubheading" class="text-slate-500 text-base sm:text-lg max-w-md">اختر الطريقة التي تريد استخدامها لفحص الموقع</p>
+            </div>
+
+            <!-- Two Main Options Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-3xl mx-auto">
+                
+                <!-- Card 1: URL Check -->
+                <div class="bg-white rounded-2xl p-8 border border-slate-200/80 card-shadow flex flex-col items-center text-center justify-between">
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-6">
+                            <i class="fa-solid fa-link"></i>
+                        </div>
+                        <h3 id="card1Title" class="text-xl font-bold text-slate-900 mb-3">كشف الموقع عن طريق الرابط</h3>
+                        <p id="card1Desc" class="text-slate-500 text-sm leading-relaxed mb-8 px-2">
+                            أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوهاً أو منخفض الخطورة.
+                        </p>
+                    </div>
+                    <button onclick="openUrlModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center space-x-2 rtl:space-x-reverse shadow-md shadow-blue-600/20">
+                        <span id="card1Btn">بدء الفحص</span>
+                        <i id="card1Icon" class="fa-solid fa-arrow-left text-sm rtl:rotate-0 rotate-180"></i>
+                    </button>
+                </div>
+
+                <!-- Card 2: QR Code Check -->
+                <div class="bg-white rounded-2xl p-8 border border-slate-200/80 card-shadow flex flex-col items-center text-center justify-between">
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-2xl mb-6">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </div>
+                        <h3 id="card2Title" class="text-xl font-bold text-slate-900 mb-3">كشف الموقع عن طريق QR Code</h3>
+                        <p id="card2Desc" class="text-slate-500 text-sm leading-relaxed mb-8 px-2">
+                            قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوهاً أو منخفض الخطورة.
+                        </p>
+                    </div>
+                    <button onclick="openQrModal()" class="w-full bg-[#1c2938] hover:bg-slate-800 text-white font-medium py-3 px-6 rounded-xl transition duration-200 flex items-center justify-center space-x-2 rtl:space-x-reverse shadow-md">
+                        <span id="card2Btn">بدء الفحص</span>
+                        <i id="card2Icon" class="fa-solid fa-arrow-left text-sm rtl:rotate-0 rotate-180"></i>
+                    </button>
+                </div>
+
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- التذييل -->
-    <div class="footer-bar" id="footerText">
+    <!-- Footer -->
+    <footer id="footerText" class="py-6 text-center text-slate-400 text-sm border-t border-slate-200/60 bg-white">
         © 2026 - فحص المواقع
+    </footer>
+
+    <!-- ================= MODALS & INTERACTIVE POPUPS ================= -->
+
+    <!-- Modal 1: URL Scanner Modal -->
+    <div id="urlModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative">
+            <!-- Close Button -->
+            <button onclick="closeModal('urlModal')" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center space-x-3 rtl:space-x-reverse mb-6">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <i class="fa-solid fa-link text-lg"></i>
+                </div>
+                <div>
+                    <h3 id="urlModalTitle" class="text-lg font-bold text-slate-900">فحص رابط الموقع</h3>
+                    <p id="urlModalSub" class="text-xs text-slate-500">أدخل الرابط الكامل لتبدأ عملية التحليل السيبراني</p>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <div id="urlInputForm" class="space-y-4">
+                <div>
+                    <label id="urlLabel" class="block text-sm font-medium text-slate-700 mb-2">رابط الموقع (URL)</label>
+                    <div class="relative">
+                        <input type="url" id="targetUrl" placeholder="https://example.com" class="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-left text-slate-800 text-sm font-mono" dir="ltr">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-globe"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="urlHint" class="text-xs text-slate-400 leading-relaxed">
+                    * سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع قواعد بيانات التصيد والاحتيال والذكاء الاصطناعي.
+                </div>
+
+                <button onclick="processUrlCheck()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition flex items-center justify-center space-x-2 rtl:space-x-reverse shadow-md shadow-blue-600/20">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span id="urlStartBtn">فحص الرابط الآن</span>
+                </button>
+            </div>
+
+            <!-- Loading State -->
+            <div id="urlLoading" class="hidden py-8 text-center space-y-4">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+                <p id="urlLoadingText" class="text-slate-600 font-medium text-sm">جاري تحليل الرابط والتحقق من الشهادات والسمعة...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="urlResult" class="hidden space-y-4 pt-2"></div>
+        </div>
     </div>
 
+    <!-- Modal 2: QR Scanner Modal -->
+    <div id="qrModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative">
+            <!-- Close Button -->
+            <button onclick="closeModal('qrModal')" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center space-x-3 rtl:space-x-reverse mb-6">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center">
+                    <i class="fa-solid fa-qrcode text-lg"></i>
+                </div>
+                <div>
+                    <h3 id="qrModalTitle" class="text-lg font-bold text-slate-900">فحص رمز الاستجابة السريعة (QR Code)</h3>
+                    <p id="qrModalSub" class="text-xs text-slate-500">قم برفع صورة الـ QR أو استخدم الكاميرا لقراءة الرابط</p>
+                </div>
+            </div>
+
+            <!-- QR Options -->
+            <div id="qrInputForm" class="space-y-4">
+                <!-- Dropzone / Upload area -->
+                <div onclick="document.getElementById('qrFileInput').click()" class="border-2 border-dashed border-slate-300 hover:border-slate-800 bg-slate-50 rounded-2xl p-6 text-center cursor-pointer transition">
+                    <input type="file" id="qrFileInput" accept="image/*" class="hidden" onchange="handleQrUpload(event)">
+                    <div class="w-12 h-12 rounded-full bg-slate-200 text-slate-600 mx-auto flex items-center justify-center text-xl mb-3">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <p id="qrUploadTitle" class="text-sm font-semibold text-slate-700">اضغط هنا لرفع صورة QR Code</p>
+                    <p id="qrUploadSub" class="text-xs text-slate-400 mt-1">يدعم صيغ PNG, JPG, JPEG</p>
+                </div>
+
+                <!-- Camera stream area -->
+                <div class="relative">
+                    <button id="startCamBtn" onclick="toggleCamera()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-2.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 rtl:space-x-reverse">
+                        <i class="fa-solid fa-camera"></i>
+                        <span id="qrCamText">استخدام الكاميرا للمسح المباشر</span>
+                    </button>
+                    <div id="cameraContainer" class="hidden mt-3 relative rounded-xl overflow-hidden bg-black aspect-video">
+                        <video id="qrVideo" class="w-full h-full object-cover" playsinline></video>
+                        <canvas id="qrCanvas" class="hidden"></canvas>
+                        <div class="absolute inset-0 border-2 border-dashed border-blue-500 m-8 pointer-events-none rounded-lg opacity-60"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="qrLoading" class="hidden py-8 text-center space-y-4">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-transparent"></div>
+                <p id="qrLoadingText" class="text-slate-600 font-medium text-sm">جاري قراءة رمز الـ QR وفحص الرابط المستخرج...</p>
+            </div>
+
+            <!-- QR Result -->
+            <div id="qrResult" class="hidden space-y-4 pt-2"></div>
+        </div>
+    </div>
+
+    <!-- Translations & Integrated API Backend Logic -->
     <script>
+        const i18n = {
+            ar: {
+                pageTitle: "فحص المواقع - منصة الأمان الرقمي",
+                navBrand: "فحص المواقع",
+                navSlogan: "معاً لبيئة رقمية أكثر أماناً",
+                langBtnText: "English",
+                mainHeading: "فحص المواقع",
+                mainSubheading: "اختر الطريقة التي تريد استخدامها لفحص الموقع",
+                card1Title: "كشف الموقع عن طريق الرابط",
+                card1Desc: "أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوهاً أو منخفض الخطورة.",
+                card1Btn: "بدء الفحص",
+                card2Title: "كشف الموقع عن طريق QR Code",
+                card2Desc: "قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوهاً أو منخفض الخطورة.",
+                card2Btn: "بدء الفحص",
+                footerText: "© 2026 - فحص المواقع",
+                urlModalTitle: "فحص رابط الموقع",
+                urlModalSub: "أدخل الرابط الكامل لتبدأ عملية التحليل السيبراني",
+                urlLabel: "رابط الموقع (URL)",
+                urlHint: "* سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع قواعد بيانات التصيد والاحتيال.",
+                urlStartBtn: "فحص الرابط الآن",
+                urlLoadingText: "جاري تحليل الرابط والتحقق من الشهادات والسمعة بالذكاء الاصطناعي...",
+                qrModalTitle: "فحص رمز الاستجابة السريعة (QR Code)",
+                qrModalSub: "قم برفع صورة الـ QR أو استخدم الكاميرا لقراءة الرابط",
+                qrUploadTitle: "اضغط هنا لرفع صورة QR Code",
+                qrUploadSub: "يدعم صيغ PNG, JPG, JPEG",
+                qrCamText: "استخدام الكاميرا للمسح المباشر",
+                qrLoadingText: "جاري قراءة رمز الـ QR وفحص الرابط المستخرج بالذكاء الاصطناعي...",
+                scanAnother: "فحص موقع آخر",
+                visitSite: "زيارة الموقع",
+                scanAnotherLink: "فحص رابط آخر",
+                alertEnterUrl: "الرجاء إدخال رابط الموقع أولاً.",
+                camError: "تعذر الوصول لكاميرا الجهاز: "
+            },
+            en: {
+                pageTitle: "Website Scanner - Cyber Security Platform",
+                navBrand: "Website Scanner",
+                navSlogan: "Together for a safer digital environment",
+                langBtnText: "العربية",
+                mainHeading: "Website Scanner",
+                mainSubheading: "Choose the method you want to use for checking the website",
+                card1Title: "Check via Website Link",
+                card1Desc: "Enter the website URL to check whether it is suspicious or low risk.",
+                card1Btn: "Start Scan",
+                card2Title: "Check via QR Code",
+                card2Desc: "Scan the QR code to determine whether it is suspicious or low risk.",
+                card2Btn: "Start Scan",
+                footerText: "© 2026 - Website Scanner",
+                urlModalTitle: "Check Website Link",
+                urlModalSub: "Enter the full URL to begin cybersecurity analysis",
+                urlLabel: "Website Link (URL)",
+                urlHint: "* Domain name, HTTPS security protocol, and phishing databases will be analyzed.",
+                urlStartBtn: "Scan Link Now",
+                urlLoadingText: "Analyzing link and verifying security certificates via AI...",
+                qrModalTitle: "Scan QR Code",
+                qrModalSub: "Upload a QR code image or use camera to read the link",
+                qrUploadTitle: "Click here to upload QR Code image",
+                qrUploadSub: "Supports PNG, JPG, JPEG formats",
+                qrCamText: "Use Camera for Live Scan",
+                qrLoadingText: "Reading QR code and scanning extracted link via AI...",
+                scanAnother: "Scan Another Site",
+                visitSite: "Visit Website",
+                scanAnotherLink: "Scan Another Link",
+                alertEnterUrl: "Please enter a valid website link first.",
+                camError: "Could not access camera: "
+            }
+        };
+
         let currentLang = 'ar';
 
         function toggleLanguage() {
             currentLang = currentLang === 'ar' ? 'en' : 'ar';
-            const htmlTag = document.documentElement;
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
             
-            if (currentLang === 'en') {
-                htmlTag.setAttribute('dir', 'ltr');
-                htmlTag.setAttribute('lang', 'en');
-                document.getElementById('langBtn').innerText = 'AR';
-                document.getElementById('sloganText').innerText = 'Together for a safer digital environment';
-                document.getElementById('mainTitle').innerText = 'Website Scanner';
-                document.getElementById('mainSub').innerText = 'Choose the method you want to use to scan the website';
-                
-                document.getElementById('urlTitle').innerText = 'Detect via URL';
-                document.getElementById('urlDesc').innerText = 'Enter website URL to check if it is safe or malicious.';
-                document.getElementById('urlToggleBtn').innerHTML = 'Start Scan <i class="fas fa-arrow-right me-1"></i>';
-                document.getElementById('urlInputLabel').innerText = 'Enter URL:';
-                document.getElementById('urlAnalyzeBtn').innerText = 'Analyze URL Now';
+            const t = i18n[currentLang];
+            
+            document.getElementById('pageTitle').innerText = t.pageTitle;
+            document.getElementById('navBrand').innerText = t.navBrand;
+            document.getElementById('navSlogan').innerText = t.navSlogan;
+            document.getElementById('langBtnText').innerText = t.langBtnText;
+            document.getElementById('mainHeading').innerText = t.mainHeading;
+            document.getElementById('mainSubheading').innerText = t.mainSubheading;
+            document.getElementById('card1Title').innerText = t.card1Title;
+            document.getElementById('card1Desc').innerText = t.card1Desc;
+            document.getElementById('card1Btn').innerText = t.card1Btn;
+            document.getElementById('card2Title').innerText = t.card2Title;
+            document.getElementById('card2Desc').innerText = t.card2Desc;
+            document.getElementById('card2Btn').innerText = t.card2Btn;
+            document.getElementById('footerText').innerText = t.footerText;
+            
+            document.getElementById('urlModalTitle').innerText = t.urlModalTitle;
+            document.getElementById('urlModalSub').innerText = t.urlModalSub;
+            document.getElementById('urlLabel').innerText = t.urlLabel;
+            document.getElementById('urlHint').innerText = t.urlHint;
+            document.getElementById('urlStartBtn').innerText = t.urlStartBtn;
+            document.getElementById('urlLoadingText').innerText = t.urlLoadingText;
+            
+            document.getElementById('qrModalTitle').innerText = t.qrModalTitle;
+            document.getElementById('qrModalSub').innerText = t.qrModalSub;
+            document.getElementById('qrUploadTitle').innerText = t.qrUploadTitle;
+            document.getElementById('qrUploadSub').innerText = t.qrUploadSub;
+            document.getElementById('qrCamText').innerText = t.qrCamText;
+            document.getElementById('qrLoadingText').innerText = t.qrLoadingText;
+        }
 
-                document.getElementById('qrTitle').innerText = 'Detect via QR Code';
-                document.getElementById('qrDesc').innerText = 'Scan QR Code to check if it is safe or malicious.';
-                document.getElementById('qrToggleBtn').innerHTML = 'Start Scan <i class="fas fa-arrow-right me-1"></i>';
-                document.getElementById('qrFileLabel').innerText = 'Select QR image:';
-                document.getElementById('qrAnalyzeBtn').innerText = 'Analyze QR Now';
-                
-                document.getElementById('footerText').innerText = '© 2026 - Website Scanner';
-            } else {
-                htmlTag.setAttribute('dir', 'rtl');
-                htmlTag.setAttribute('lang', 'ar');
-                document.getElementById('langBtn').innerText = 'EN';
-                document.getElementById('sloganText').innerText = 'معاً لبيئة رقمية أكثر أماناً';
-                document.getElementById('mainTitle').innerText = 'فحص المواقع';
-                document.getElementById('mainSub').innerText = 'اختر الطريقة التي تريد استخدامها لفحص الموقع';
-                
-                document.getElementById('urlTitle').innerText = 'كشف الموقع عن طريق الرابط';
-                document.getElementById('urlDesc').innerText = 'أدخل رابط الموقع الذي تريد فحصه لمعرفة ما إذا كان مشبوباً أو آمناً.';
-                document.getElementById('urlToggleBtn').innerHTML = 'بدء الفحص <i class="fas fa-arrow-left ms-1"></i>';
-                document.getElementById('urlInputLabel').innerText = 'أدخل الرابط:';
-                document.getElementById('urlAnalyzeBtn').innerText = 'فحص الرابط الآن';
+        function openUrlModal() {
+            resetForms();
+            document.getElementById('urlModal').classList.remove('hidden');
+        }
 
-                document.getElementById('qrTitle').innerText = 'كشف الموقع عن طريق QR Code';
-                document.getElementById('qrDesc').innerText = 'قم بمسح رمز الاستجابة السريعة (QR Code) لمعرفة ما إذا كان مشبوباً أو آمناً.';
-                document.getElementById('qrToggleBtn').innerHTML = 'بدء الفحص <i class="fas fa-arrow-left ms-1"></i>';
-                document.getElementById('qrFileLabel').innerText = 'اختر صورة الـ QR:';
-                document.getElementById('qrAnalyzeBtn').innerText = 'تحليل الـ QR الآن';
-                
-                document.getElementById('footerText').innerText = '© 2026 - فحص المواقع';
+        function openQrModal() {
+            resetForms();
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            stopCamera();
+        }
+
+        function resetForms() {
+            document.getElementById('urlInputForm').classList.remove('hidden');
+            document.getElementById('urlLoading').classList.add('hidden');
+            document.getElementById('urlResult').classList.add('hidden');
+            document.getElementById('targetUrl').value = '';
+
+            document.getElementById('qrInputForm').classList.remove('hidden');
+            document.getElementById('qrLoading').classList.add('hidden');
+            document.getElementById('qrResult').classList.add('hidden');
+            stopCamera();
+        }
+
+        // URL Checking Connected to Backend AI Model
+        function processUrlCheck() {
+            const urlInput = document.getElementById('targetUrl').value.trim();
+            const t = i18n[currentLang];
+            if (!urlInput) {
+                alert(t.alertEnterUrl);
+                return;
             }
-        }
 
-        function toggleUrlBox() {
-            const sec = document.getElementById('urlSection');
-            sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
-        }
+            document.getElementById('urlInputForm').classList.add('hidden');
+            document.getElementById('urlLoading').classList.remove('hidden');
 
-        function toggleQrBox() {
-            const sec = document.getElementById('qrSection');
-            sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function checkUrl() {
-            const url = document.getElementById('urlInput').value;
-            if(!url) { alert(currentLang === 'ar' ? 'الرجاء إدخال الرابط' : 'Please enter the URL'); return; }
-            
             fetch('/scan', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: url})
+                body: JSON.stringify({url: urlInput})
             })
             .then(res => res.json())
             .then(data => {
-                let alertClass = data.status === 'Dangerous' ? 'alert-danger' : 'alert-success';
-                document.getElementById('resultContainer').innerHTML = `
-                    <div class="alert ${alertClass} shadow-sm mt-3">
-                        <h5 class="fw-bold">${data.category}</h5>
-                        <p class="mb-1">${data.message}</p>
-                        <small class="text-muted">${data.compliance_note || ''}</small>
-                    </div>
-                `;
+                document.getElementById('urlLoading').classList.add('hidden');
+                const resultDiv = document.getElementById('urlResult');
+                resultDiv.classList.remove('hidden');
+
+                const isSafe = (data.status !== 'Dangerous');
+                renderResult(resultDiv, urlInput, isSafe, data);
+            })
+            .catch(err => {
+                document.getElementById('urlLoading').classList.add('hidden');
+                document.getElementById('urlInputForm').classList.remove('hidden');
+                alert(currentLang === 'ar' ? 'تعذر الاتصال بالخادم الرئيسي.' : 'Failed to connect to the server.');
             });
         }
 
-        function checkQr() {
-            const fileInput = document.getElementById('qrFile').files[0];
-            if(!fileInput) { alert(currentLang === 'ar' ? 'الرجاء اختيار صورة الـ QR' : 'Please select a QR image'); return; }
+        // Render Security Result Card
+        function renderResult(container, link, isSafe, backendData = null) {
+            const t = i18n[currentLang];
+            const category = backendData ? backendData.category : (isSafe ? "Verified Secure" : "Phishing / Malicious Link");
+            const complianceNote = backendData ? backendData.compliance_note : "";
+            const message = backendData ? backendData.message : "";
+
+            if (isSafe) {
+                container.innerHTML = `
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
+                        <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3">
+                            <i class="fa-solid fa-shield-check"></i>
+                        </div>
+                        <h4 class="text-lg font-bold text-emerald-900 mb-1">${category}</h4>
+                        <p class="text-xs text-emerald-700 mb-3">${message}</p>
+                        
+                        ${complianceNote ? `
+                        <div class="bg-emerald-100/70 border border-emerald-200/80 rounded-xl p-3 text-xs text-emerald-900 text-right rtl:text-right ltr:text-left leading-relaxed mb-4">
+                            <i class="fa-solid fa-circle-info text-emerald-700 mr-1 ml-1"></i>
+                            ${complianceNote}
+                        </div>` : ''}
+
+                        <div class="bg-white p-3 rounded-xl border border-emerald-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
+                            ${escapeHtml(link)}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="resetForms()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition">${t.scanAnother}</button>
+                            <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="w-full border border-emerald-600 text-emerald-700 hover:bg-emerald-100 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center space-x-1 rtl:space-x-reverse">
+                                <span>${t.visitSite}</span>
+                                <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-center">
+                        <div class="w-12 h-12 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <h4 class="text-lg font-bold text-rose-900 mb-1">${category}</h4>
+                        <p class="text-xs text-rose-700 mb-2">${message}</p>
+                        
+                        ${complianceNote ? `
+                        <div class="bg-rose-100/70 border border-rose-200/80 rounded-xl p-3 text-xs text-rose-900 text-right rtl:text-right ltr:text-left leading-relaxed mb-4">
+                            <i class="fa-solid fa-circle-info text-rose-700 mr-1 ml-1"></i>
+                            ${complianceNote}
+                        </div>` : ''}
+
+                        <div class="bg-white p-3 rounded-xl border border-rose-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
+                            ${escapeHtml(link)}
+                        </div>
+                        <button onclick="resetForms()" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-sm font-medium transition">${t.scanAnotherLink}</button>
+                    </div>
+                `;
+            }
+        }
+
+        // QR Upload connected to Backend Route /scan-qr
+        function handleQrUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('qrInputForm').classList.add('hidden');
+            document.getElementById('qrLoading').classList.remove('hidden');
 
             let formData = new FormData();
-            formData.append('file', fileInput);
+            formData.append('file', file);
 
             fetch('/scan-qr', {
                 method: 'POST',
@@ -197,15 +491,62 @@
             })
             .then(res => res.json())
             .then(data => {
-                let alertClass = data.status === 'Dangerous' ? 'alert-danger' : 'alert-success';
-                document.getElementById('resultContainer').innerHTML = `
-                    <div class="alert ${alertClass} shadow-sm mt-3">
-                        <h5 class="fw-bold">${data.category}</h5>
-                        <p class="mb-1"><strong>${currentLang === 'ar' ? 'الرابط المستخرج:' : 'Extracted URL:'}</strong> <span dir="ltr">${data.extracted_url || 'N/A'}</span></p>
-                        <p class="mb-1">${data.message}</p>
-                        <small class="text-muted">${data.compliance_note || ''}</small>
-                    </div>
-                `;
+                document.getElementById('qrLoading').classList.add('hidden');
+                const resultDiv = document.getElementById('qrResult');
+                resultDiv.classList.remove('hidden');
+
+                const isSafe = (data.status !== 'Dangerous');
+                renderResult(resultDiv, data.extracted_url || 'N/A', isSafe, data);
+            })
+            .catch(err => {
+                document.getElementById('qrLoading').classList.add('hidden');
+                document.getElementById('qrInputForm').classList.remove('hidden');
+                alert(currentLang === 'ar' ? 'حدث خطأ أثناء قراءة الـ QR' : 'Error reading QR image');
+            });
+        }
+
+        // Camera Logic
+        let videoStream = null;
+        function toggleCamera() {
+            const container = document.getElementById('cameraContainer');
+            const t = i18n[currentLang];
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                    .then(function(stream) {
+                        videoStream = stream;
+                        const video = document.getElementById('qrVideo');
+                        video.srcObject = stream;
+                        video.setAttribute("playsinline", true);
+                        video.play();
+                    })
+                    .catch(function(err) {
+                        alert(t.camError + err.message);
+                        container.classList.add('hidden');
+                    });
+            } else {
+                stopCamera();
+            }
+        }
+
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            const container = document.getElementById('cameraContainer');
+            if (container) container.classList.add('hidden');
+        }
+
+        function escapeHtml(string) {
+            return String(string).replace(/[&<>"']/g, function (s) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[s];
             });
         }
     </script>
