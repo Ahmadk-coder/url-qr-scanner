@@ -3,22 +3,20 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import re
-from PIL import Image
 import io
+from PIL import Image
 
 try:
     from pyzbar.pyzbar import decode as decode_qr
-    QR_AVAILABLE = True
+    PYZBAR_AVAILABLE = True
 except ImportError:
-    QR_AVAILABLE = False
+    PYZBAR_AVAILABLE = False
 
 app = Flask(__name__)
 
-# قائمة النطاقات الموثوقة (تُعتمد فقط بعد التحقق من وجود HTTPS وشهادة SSL سليمة)
+# نطاقات موثوقة (تُعتمد فقط بعد التحقق من وجود تشفير HTTPS صالح)
 TRUSTED_DOMAINS = [
     "url-qr-scanner.onrender.com",
-    "localhost",
-    "127.0.0.1",
     "google.com",
     "github.com",
     "ksu.edu.sa",
@@ -30,122 +28,114 @@ TRUSTED_DOMAINS = [
     "apple.com"
 ]
 
-def is_trusted_domain(domain):
-    return any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS)
+def evaluate_url_nca(raw_url):
+    """
+    تقييم أمان الرابط ومحتواه وفق ضوابط الهيئة الوطنية للأمن السيبراني (NCA):
+    1. إلزامية التشفير HTTPS وصلاحية شهادة SSL/TLS.
+    2. فحص بنية الرابط للكشف عن التصيد والتمويه.
+    3. فحص محتوى الصفحة الفعلي وسلوك النماذج (Forms).
+    """
+    if not raw_url or not isinstance(raw_url, str):
+        return False
 
-def analyze_security_nca(raw_url):
-    """
-    فحص أمني متكامل وفق ضوابط الهيئة الوطنية للأمن السيبراني (NCA):
-    1. التحقق الصارم من بروتوكول التشفير HTTPS.
-    2. تحليل بنية الرابط للكشف عن التصيد والتمويه (Lexical & Heuristic Analysis).
-    3. فحص الشهادة الرقمية ومحتوى الصفحة الفعلي وسلوك النماذج (Dynamic Content Inspection).
-    """
     url = raw_url.strip()
 
-    # إذا لم يكتب المستخدم البروتوكول، نفترض https للفحص، أما إذا كتب http صراحةً فيُرفض فوراً
-    if not url.lower().startswith(('http://', 'https://')):
-        url = 'https://' + url
-
-    # 1. ضابط التشفير الأساسي: أي رابط HTTP غير مشفر يعتبر غير آمن فوراً
-    if not url.lower().startswith('https://'):
+    # رفض فوري لأي رابط غير مشفر يبدأ بـ http://
+    if url.lower().startswith('http://'):
         return False
+
+    # إذا لم يكتب المستخدم البروتوكول نضيف https:// للفحص
+    if not url.lower().startswith('https://'):
+        url = 'https://' + url
 
     parsed = urlparse(url)
     domain = parsed.netloc.lower().split(':')[0]
     if domain.startswith('www.'):
         domain = domain[4:]
 
-    if not domain or '.' not in domain:
+    # التحقق من صحة بنية النطاق
+    if not domain or '.' not in domain or ' ' in domain:
         return False
 
-    # التحقق من النطاقات الموثوقة بعد ضمان وجود HTTPS
-    if is_trusted_domain(domain):
+    # اعتماد النطاقات الموثوقة بعد ضمان وجود HTTPS
+    if any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS):
         return True
 
     risk_score = 0
 
-    # 2. فحص استخدام عنوان IP مباشر بدلاً من اسم نطاق رسمي
+    # منع عناوين IP المباشرة
     if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain):
-        risk_score += 5
+        return False
 
-    # 3. فحص رموز التمويه وهجمات تشابه الأحرف (Punycode / @)
-    if '@' in url or 'xn--' in domain:
-        risk_score += 5
-
-    # 4. فحص تعقيد النطاق وكثرة النطاقات الفرعية أو الشرطات
-    if domain.count('-') >= 3 or domain.count('.') >= 3:
-        risk_score += 2
-
-    # 5. فحص الامتدادات عالية الخطورة والمرتبطة بحملات التصيد
-    suspicious_tlds = ('.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.buzz', '.click', '.work', '.zip', '.mov')
-    if domain.endswith(suspicious_tlds):
+    # كشف رموز التمويه وانتحال النطاقات (Punycode / @ / كثرة النطاقات الفرعية)
+    if '@' in url or 'xn--' in domain or domain.count('.') >= 3 or domain.count('-') >= 3:
         risk_score += 3
 
-    # 6. فحص الكلمات المفتاحية الحساسة وانتحال الجهات داخل الرابط
-    sensitive_keywords = [
+    # كشف الكلمات الحساسة المستخدمة في التصيد
+    phishing_keywords = [
         'login', 'signin', 'verify', 'update', 'secure', 'account',
         'banking', 'wallet', 'free', 'gift', 'prize', 'absher',
-        'nafath', 'aramco', 'stc', 'alrajhi', 'alinma', 'snb', 'paypal'
+        'nafath', 'confirm', 'aramco', 'stc', 'alrajhi', 'alinma', 'snb'
     ]
-    full_url_lower = url.lower()
-    if any(kw in full_url_lower for kw in sensitive_keywords):
+    if any(kw in url.lower() for kw in phishing_keywords):
+        risk_score += 3
+
+    # كشف الامتدادات عالية الخطورة
+    suspicious_tlds = ('.xyz', '.top', '.club', '.tk', '.ml', '.ga', '.cf', '.gq', '.buzz', '.click', '.zip', '.mov')
+    if domain.endswith(suspicious_tlds):
         risk_score += 3
 
     if risk_score >= 3:
         return False
 
-    # 7. الفحص الديناميكي للمحتوى والشهادة الرقمية (SSL + HTML Inspection)
+    # الفحص الديناميكي للموقع وشهادة SSL ومحتوى HTML
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response = requests.get(url, headers=headers, timeout=6, allow_redirects=True, verify=True)
 
-        # التحقق من أن الرابط بعد إعادة التوجيه ما زال يستخدم HTTPS
-        final_parsed = urlparse(response.url)
-        final_domain = final_parsed.netloc.lower().split(':')[0].replace('www.', '')
-        if final_parsed.scheme != 'https':
+        # التأكد أن إعادة التوجيه لم تنقل المستخدم لرابط غير مشفر
+        if not response.url.lower().startswith('https://'):
             return False
+
+        final_domain = urlparse(response.url).netloc.lower().split(':')[0].replace('www.', '')
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # فحص النماذج التي ترسل البيانات إلى نطاق خارجي مختلف (سلوك تصيد)
+            # فحص النماذج التي ترسل البيانات إلى نطاق خارجي أو غير مشفر
             for form in soup.find_all('form'):
                 action = form.get('action', '').strip()
-                if action.startswith(('http://', 'https://')):
+                if action.lower().startswith('http://'):
+                    return False
+                if action.lower().startswith('https://'):
                     action_domain = urlparse(action).netloc.lower().split(':')[0].replace('www.', '')
                     if action_domain and action_domain != final_domain:
                         return False
 
-            # فحص وجود حقول كلمات مرور في صفحات غير موثوقة تحمل مؤشرات اشتباه
+            # فحص حقول كلمة المرور عند وجود أي مؤشر اشتباه
             if soup.find('input', {'type': 'password'}) and risk_score >= 1:
                 return False
-
         elif response.status_code >= 500:
             return False
 
     except requests.exceptions.SSLError:
-        # شهادة الأمان غير صالحة أو منتهية أو مزورة
         return False
     except requests.exceptions.RequestException:
-        # الموقع غير موجود أو وهمي لا يستجيب
         return False
 
     return True
 
 
-def build_response_payload(is_safe, extracted_url=None):
-    payload = {
-        "status": "Safe" if is_safe else "Dangerous",
-        "result": "Safe" if is_safe else "Dangerous",
-        "is_safe": is_safe,
-        "verdict_ar": "الموقع يبدو آمن" if is_safe else "الموقع يبدو غير آمن أو مشبوه",
-        "verdict_en": "The website appears safe" if is_safe else "The website appears unsafe or suspicious",
-        "nca_note_ar": "تم الفحص والتقييم وفقاً لضوابط ومعايير الهيئة الوطنية للأمن السيبراني (NCA)",
-        "nca_note_en": "Evaluated according to the National Cybersecurity Authority (NCA) standards"
+def build_payload(is_safe, extracted_url=None):
+    status_label = "Safe" if is_safe else "Dangerous"
+    data = {
+        "status": status_label,
+        "result": status_label,
+        "is_safe": is_safe
     }
     if extracted_url is not None:
-        payload["extracted_url"] = extracted_url
-    return payload
+        data["extracted_url"] = extracted_url
+    return data
 
 
 @app.route('/')
@@ -155,14 +145,14 @@ def home():
 
 @app.route('/scan', methods=['POST'])
 def scan_url():
-    data = request.get_json() or {}
-    target_url = data.get('url', '').strip()
+    body = request.get_json() or {}
+    target_url = body.get('url', '').strip()
 
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
 
-    is_safe = analyze_security_nca(target_url)
-    return jsonify(build_response_payload(is_safe))
+    is_safe = evaluate_url_nca(target_url)
+    return jsonify(build_payload(is_safe))
 
 
 @app.route('/scan-qr', methods=['POST'])
@@ -171,25 +161,20 @@ def scan_qr():
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files['file']
-    if not file:
-        return jsonify({"error": "Empty file"}), 400
-
-    if not QR_AVAILABLE:
-        return jsonify(build_response_payload(False, extracted_url="QR Reader Unavailable"))
+    if not file or not PYZBAR_AVAILABLE:
+        return jsonify(build_payload(False, "تعذر قراءة الرمز"))
 
     try:
         img = Image.open(io.BytesIO(file.read()))
         decoded_objects = decode_qr(img)
-
         if not decoded_objects:
-            return jsonify(build_response_payload(False, extracted_url="لم يتم العثور على رمز QR صالح"))
+            return jsonify(build_payload(False, "لم يتم العثور على رمز QR صالح"))
 
         extracted_url = decoded_objects[0].data.decode('utf-8').strip()
-        is_safe = analyze_security_nca(extracted_url)
-        return jsonify(build_response_payload(is_safe, extracted_url=extracted_url))
-
+        is_safe = evaluate_url_nca(extracted_url)
+        return jsonify(build_payload(is_safe, extracted_url))
     except Exception:
-        return jsonify(build_response_payload(False, extracted_url="تعذر قراءة الصورة"))
+        return jsonify(build_payload(False, "خطأ في قراءة الصورة"))
 
 
 if __name__ == '__main__':
