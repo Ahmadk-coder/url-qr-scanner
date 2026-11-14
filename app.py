@@ -6,10 +6,6 @@ from urllib.parse import urlparse
 app = Flask(__name__)
 
 def analyze_web_content(url):
-    """
-    الدالة المسؤولة عن فحص محتوى الصفحة، تتبع كود الـ HTML، 
-    وفحص حقول كلمات المرور والنماذج (Forms) للتأكد مما إذا كانت ترسل البيانات لدومينات خارجية.
-    """
     features = {
         "has_password_field": 0,
         "external_form_action": 0,
@@ -18,13 +14,11 @@ def analyze_web_content(url):
         "is_https": 0
     }
     
-    # 1. التحقق الصارم من بروتوكول HTTPS
     parsed_url = urlparse(url)
     if parsed_url.scheme == 'https':
         features["is_https"] = 1
     
     try:
-        # إرسال طلب HTTP آمن مع مهلة زمنية قصيرة لحماية السيرفر
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response = requests.get(url, headers=headers, timeout=5, allow_redirects=True)
         
@@ -33,23 +27,19 @@ def analyze_web_content(url):
             html_content = response.text
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # 2. البحث عن حقول إدخال كلمة المرور (مؤشر تصيد لسرقة الباسوورد)
             if soup.find('input', {'type': 'password'}):
                 features["has_password_field"] = 1
                 
-            # 3. تتبع نماذج الإدخال (Forms) ومعرفة أين تُرسل البيانات المدخلة
             parsed_original_url = urlparse(url)
             forms = soup.find_all('form')
             for form in forms:
                 action = form.get('action', '')
                 if action:
                     parsed_action = urlparse(action)
-                    # إذا كانت النماذج ترسل البيانات لدومين خارجي مختلف تماماً (External Form Action)
                     if parsed_action.netloc and parsed_action.netloc != parsed_original_url.netloc:
                         features["external_form_action"] = 1
                         break
             
-            # 4. تتبع الكلمات المفتاحية الشائعة في صفحات التصيد داخل محتوى الصفحة
             suspicious_words = ['login', 'signin', 'verify', 'update', 'account', 'banking', 'secure', 'تسجيل', 'تحديث', 'حسابك']
             page_text = soup.get_text().lower()
             for word in suspicious_words:
@@ -75,14 +65,9 @@ def scan_url():
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
     
-    # تنفيذ الفحص ومحتوى الصفحة
+    # تنفيذ الفحص
     content_features = analyze_web_content(target_url)
     
-    # قواعد القرار الأمنية: الموقع يعتبر مشبوه/غير آمن إذا كان:
-    # - يستخدم HTTP (ليس HTTPS)
-    # - أو يحتوي على فورم يرسل لخارج الدومين
-    # - أو يحتوي على حقل باسوورد في رابط غير مشفر
-    # - أو يفتقد لشهادة الأمان
     is_phishing_or_unsafe = (
         content_features["is_https"] == 0 or
         content_features["external_form_action"] == 1 or 
@@ -91,15 +76,32 @@ def scan_url():
         content_features["page_reachable"] == 0
     )
     
-    # تحديد النتيجة بدقة تامة ومنع التناقض
-    result_text = "Risky / Insecure" if is_phishing_or_unsafe else "Legitimate / Safe"
-    short_status = "Phishing" if is_phishing_or_unsafe else "Safe"
+    # تجهيز النصوص لكي تتطابق مع أي اسم متغير يحتاجه الجافاسكريبت في الواجهة
+    status_en = "Phishing / Risky" if is_phishing_or_unsafe else "Legitimate / Safe"
+    status_ar = "مشبوه / غير آمن" if is_phishing_or_unsafe else "آمن وصحيح"
     
+    short_en = "Phishing" if is_phishing_or_unsafe else "Safe"
+    short_ar = "خطر" if is_phishing_or_unsafe else "آمن"
+    
+    # نرسل كل المفاتيح المحتملة (Result, Status, Message, Prediction, etc.)
     return jsonify({
-        "result": short_status,
-        "status": short_status,
-        "message": result_text,
-        "prediction": short_status,
+        # الإنجليزية الأساسية للمتغيرات البرمجية
+        "result": short_en,
+        "status": short_en,
+        "prediction": short_en,
+        "message": status_en,
+        
+        # العربية والإنجليزية التفصيلية
+        "message_en": status_en,
+        "message_ar": status_ar,
+        "short_en": short_en,
+        "short_ar": short_ar,
+        
+        # حقول إضافية لضمان عدم ظهور undefined نهائياً تحت أي ظرف
+        "title": short_en,
+        "category": short_en,
+        "safety": short_en,
+        
         "is_safe": not is_phishing_or_unsafe,
         "content_analysis": content_features
     })
