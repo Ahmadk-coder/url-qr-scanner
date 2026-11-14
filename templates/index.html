@@ -384,7 +384,6 @@
                 const resultDiv = document.getElementById('urlResult');
                 resultDiv.classList.remove('hidden');
 
-                // تعديل دقيق: التحقق من الأمان عبر is_safe أو status لمنع ظهور اللون الأخضر مع الأخطاء وتجنب undefined
                 const isSafe = (data.is_safe === true || (data.status !== 'Dangerous' && data.result !== 'Phishing' && data.status !== 'Phishing'));
                 renderResult(resultDiv, urlInput, isSafe, data);
             })
@@ -398,7 +397,6 @@
         function renderResult(container, link, isSafe, backendData = null) {
             const t = i18n[currentLang];
             
-            // التعامل مع اللغات وتفادي ظهور undefined بشكل كامل
             let category = "";
             let message = "";
             
@@ -421,7 +419,7 @@
                 container.innerHTML = `
                     <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
                         <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3">
-                            <i class="fa-solid fa-shield-check"></i>
+                            <i class="fa-solid fa-check"></i>
                         </div>
                         <h4 class="text-lg font-bold text-emerald-900 mb-1">${escapeHtml(category)}</h4>
                         <p class="text-xs text-emerald-700 mb-3">${escapeHtml(message)}</p>
