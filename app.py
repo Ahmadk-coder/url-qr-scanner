@@ -60,7 +60,7 @@ def analyze_web_content(url):
 
 @app.route('/')
 def home():
-    # عرض الصفحة الرئيسية (تأكد أن ملف index.html موجود داخل مجلد templates)
+    # عرض الصفحة الرئيسية
     return render_template('index.html')
 
 
@@ -72,24 +72,33 @@ def scan_url():
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
     
+    # التحقق من بروتوكول الرابط (إذا كان HTTP يعتبر تنبيه أمني أولي)
+    parsed_url = urlparse(target_url)
+    is_http = parsed_url.scheme == 'http'
+    
     # تنفيذ الفحص الديناميكي ومحتوى الصفحة
     content_features = analyze_web_content(target_url)
     
-    # منطق اتخاذ القرار
+    # منطق اتخاذ القرار الشامل
     is_phishing = (
         content_features["external_form_action"] == 1 or 
         content_features["has_password_field"] == 1 or
-        content_features["suspicious_keywords_in_content"] > 3
+        content_features["suspicious_keywords_in_content"] > 3 or
+        content_features["page_reachable"] == 0
     )
     
-    result_text = "Phishing" if is_phishing else "Safe"
+    # تحديد الحالة بدقة
+    status_text = "Phishing / Risky" if is_phishing else "Legitimate / Safe"
+    short_status = "Phishing" if is_phishing else "Safe"
     
-    # إرسال كافة المفاتيح لكي تتعرف عليها الواجهة الأمامية تماماً ولا تظهر كلمة undefined
+    # إرسال كافة المتغيرات المحتملة لتتطابق مع الواجهة الأمامية وتمنع ظهور undefined
     return jsonify({
-        "result": result_text,
-        "status": result_text,
-        "message": result_text,
+        "status": short_status,
+        "result": short_status,
+        "message": status_text,
+        "prediction": short_status,
         "is_safe": not is_phishing,
+        "protocol_warning": "Insecure HTTP Protocol" if is_http else None,
         "content_analysis": content_features
     })
 
