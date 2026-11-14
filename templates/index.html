@@ -248,20 +248,23 @@
                 urlModalTitle: "فحص رابط الموقع",
                 urlModalSub: "أدخل الرابط الكامل لتبدأ عملية التحليل السيبراني",
                 urlLabel: "رابط الموقع (URL)",
-                urlHint: "* سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع قواعد بيانات التصيد والاحتيال.",
+                urlHint: "* سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع معايير الهيئة الوطنية للأمن السيبراني.",
                 urlStartBtn: "فحص الرابط الآن",
-                urlLoadingText: "جاري تحليل الرابط والتحقق من الشهادات والسمعة بالذكاء الاصطناعي...",
+                urlLoadingText: "جاري تحليل الرابط والتحقق من الشهادات والسمعة...",
                 qrModalTitle: "فحص رمز الاستجابة السريعة (QR Code)",
                 qrModalSub: "قم برفع صورة الـ QR أو استخدم الكاميرا لقراءة الرابط",
                 qrUploadTitle: "اضغط هنا لرفع صورة QR Code",
                 qrUploadSub: "يدعم صيغ PNG, JPG, JPEG",
                 qrCamText: "استخدام الكاميرا للمسح المباشر",
-                qrLoadingText: "جاري قراءة رمز الـ QR وفحص الرابط المستخرج بالذكاء الاصطناعي...",
+                qrLoadingText: "جاري قراءة رمز الـ QR وفحص الرابط المستخرج...",
                 scanAnother: "فحص موقع آخر",
                 visitSite: "زيارة الموقع",
                 scanAnotherLink: "فحص رابط آخر",
                 alertEnterUrl: "الرجاء إدخال رابط الموقع أولاً.",
-                camError: "تعذر الوصول لكاميرا الجهاز: "
+                camError: "تعذر الوصول لكاميرا الجهاز: ",
+                safeTitle: "الموقع يبدو آمن",
+                unsafeTitle: "الموقع يبدو غير آمن أو مشبوه",
+                ncaNote: "تم الفحص والتقييم حسب معايير الهيئة الوطنية للأمن السيبراني"
             },
             en: {
                 pageTitle: "Website Scanner - Cyber Security Platform",
@@ -280,32 +283,36 @@
                 urlModalTitle: "Check Website Link",
                 urlModalSub: "Enter the full URL to begin cybersecurity analysis",
                 urlLabel: "Website Link (URL)",
-                urlHint: "* Domain name, HTTPS security protocol, and phishing databases will be analyzed.",
+                urlHint: "* Domain name, HTTPS protocol, and NCA cybersecurity controls will be analyzed.",
                 urlStartBtn: "Scan Link Now",
-                urlLoadingText: "Analyzing link and verifying security certificates via AI...",
+                urlLoadingText: "Analyzing link and verifying security certificates...",
                 qrModalTitle: "Scan QR Code",
                 qrModalSub: "Upload a QR code image or use camera to read the link",
                 qrUploadTitle: "Click here to upload QR Code image",
                 qrUploadSub: "Supports PNG, JPG, JPEG formats",
                 qrCamText: "Use Camera for Live Scan",
-                qrLoadingText: "Reading QR code and scanning extracted link via AI...",
+                qrLoadingText: "Reading QR code and scanning extracted link...",
                 scanAnother: "Scan Another Site",
                 visitSite: "Visit Website",
                 scanAnotherLink: "Scan Another Link",
                 alertEnterUrl: "Please enter a valid website link first.",
-                camError: "Could not access camera: "
+                camError: "Could not access camera: ",
+                safeTitle: "The website appears safe",
+                unsafeTitle: "The website appears unsafe or suspicious",
+                ncaNote: "Evaluated according to National Cybersecurity Authority (NCA) standards"
             }
         };
 
         let currentLang = 'ar';
+        let videoStream = null;
+        let scanAnimationId = null;
 
         function toggleLanguage() {
             currentLang = currentLang === 'ar' ? 'en' : 'ar';
             document.documentElement.lang = currentLang;
             document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-            
+
             const t = i18n[currentLang];
-            
             document.getElementById('pageTitle').innerText = t.pageTitle;
             document.getElementById('navBrand').innerText = t.navBrand;
             document.getElementById('navSlogan').innerText = t.navSlogan;
@@ -319,14 +326,14 @@
             document.getElementById('card2Desc').innerText = t.card2Desc;
             document.getElementById('card2Btn').innerText = t.card2Btn;
             document.getElementById('footerText').innerText = t.footerText;
-            
+
             document.getElementById('urlModalTitle').innerText = t.urlModalTitle;
             document.getElementById('urlModalSub').innerText = t.urlModalSub;
             document.getElementById('urlLabel').innerText = t.urlLabel;
             document.getElementById('urlHint').innerText = t.urlHint;
             document.getElementById('urlStartBtn').innerText = t.urlStartBtn;
             document.getElementById('urlLoadingText').innerText = t.urlLoadingText;
-            
+
             document.getElementById('qrModalTitle').innerText = t.qrModalTitle;
             document.getElementById('qrModalSub').innerText = t.qrModalSub;
             document.getElementById('qrUploadTitle').innerText = t.qrUploadTitle;
@@ -359,9 +366,11 @@
             document.getElementById('qrInputForm').classList.remove('hidden');
             document.getElementById('qrLoading').classList.add('hidden');
             document.getElementById('qrResult').classList.add('hidden');
+            document.getElementById('qrFileInput').value = '';
             stopCamera();
         }
 
+        // فحص الرابط المباشر
         function processUrlCheck() {
             const urlInput = document.getElementById('targetUrl').value.trim();
             const t = i18n[currentLang];
@@ -373,62 +382,48 @@
             document.getElementById('urlInputForm').classList.add('hidden');
             document.getElementById('urlLoading').classList.remove('hidden');
 
+            sendUrlToBackend(urlInput, 'urlResult', 'urlLoading', 'urlInputForm');
+        }
+
+        // إرسال أي رابط (مباشر أو مستخرج من QR) إلى السيرفر
+        function sendUrlToBackend(urlToCheck, resultId, loadingId, formId) {
             fetch('/scan', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: urlInput})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: urlToCheck })
             })
             .then(res => res.json())
             .then(data => {
-                document.getElementById('urlLoading').classList.add('hidden');
-                const resultDiv = document.getElementById('urlResult');
+                document.getElementById(loadingId).classList.add('hidden');
+                const resultDiv = document.getElementById(resultId);
                 resultDiv.classList.remove('hidden');
-
-                const isSafe = (data.is_safe === true || (data.status !== 'Dangerous' && data.result !== 'Phishing' && data.status !== 'Phishing'));
-                renderResult(resultDiv, urlInput, isSafe, data);
+                renderResult(resultDiv, urlToCheck, data.is_safe === true);
             })
-            .catch(err => {
-                document.getElementById('urlLoading').classList.add('hidden');
-                document.getElementById('urlInputForm').classList.remove('hidden');
+            .catch(() => {
+                document.getElementById(loadingId).classList.add('hidden');
+                document.getElementById(formId).classList.remove('hidden');
                 alert(currentLang === 'ar' ? 'تعذر الاتصال بالخادم الرئيسي.' : 'Failed to connect to the server.');
             });
         }
 
-        function renderResult(container, link, isSafe, backendData = null) {
+        // عرض النتيجة الموحدة للروابط والـ QR
+        function renderResult(container, link, isSafe) {
             const t = i18n[currentLang];
-            
-            let category = "";
-            let message = "";
-            
-            if (backendData) {
-                if (currentLang === 'ar') {
-                    category = backendData.message_ar || backendData.category || (isSafe ? "آمن وصحيح" : "مشبوه / غير آمن");
-                    message = backendData.message || (isSafe ? "الموقع يعتبر آمناً وفقاً للتحليل." : "تم رصد مؤشرات خطورة أو عدم استخدام بروتوكول مشفر.");
-                } else {
-                    category = backendData.message_en || backendData.category || (isSafe ? "Legitimate / Safe" : "Phishing / Risky");
-                    message = backendData.message || (isSafe ? "The site is considered safe based on analysis." : "Risks detected or unencrypted protocol used.");
-                }
-            } else {
-                category = isSafe ? (currentLang === 'ar' ? "آمن" : "Verified Secure") : (currentLang === 'ar' ? "خطر" : "Phishing / Malicious Link");
-                message = "";
-            }
-
-            const complianceNote = backendData ? backendData.compliance_note : "";
+            const verdictTitle = isSafe ? t.safeTitle : t.unsafeTitle;
+            const ncaStandardText = t.ncaNote;
 
             if (isSafe) {
                 container.innerHTML = `
-                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
-                        <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3">
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
+                        <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
                             <i class="fa-solid fa-check"></i>
                         </div>
-                        <h4 class="text-lg font-bold text-emerald-900 mb-1">${escapeHtml(category)}</h4>
-                        <p class="text-xs text-emerald-700 mb-3">${escapeHtml(message)}</p>
+                        <h4 class="text-xl font-bold text-emerald-900 mb-4">${escapeHtml(verdictTitle)}</h4>
                         
-                        ${complianceNote ? `
-                        <div class="bg-emerald-100/70 border border-emerald-200/80 rounded-xl p-3 text-xs text-emerald-900 text-right rtl:text-right ltr:text-left leading-relaxed mb-4">
-                            <i class="fa-solid fa-circle-info text-emerald-700 mr-1 ml-1"></i>
-                            ${escapeHtml(complianceNote)}
-                        </div>` : ''}
+                        <div class="bg-emerald-100/80 border border-emerald-200 rounded-xl p-3 text-xs font-medium text-emerald-900 text-center leading-relaxed mb-4">
+                            <i class="fa-solid fa-shield-halved text-emerald-700 ml-1 mr-1"></i>
+                            ${escapeHtml(ncaStandardText)}
+                        </div>
 
                         <div class="bg-white p-3 rounded-xl border border-emerald-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
                             ${escapeHtml(link)}
@@ -445,18 +440,16 @@
                 `;
             } else {
                 container.innerHTML = `
-                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-center">
-                        <div class="w-12 h-12 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3">
+                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center">
+                        <div class="w-12 h-12 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
                             <i class="fa-solid fa-triangle-exclamation"></i>
                         </div>
-                        <h4 class="text-lg font-bold text-rose-900 mb-1">${escapeHtml(category)}</h4>
-                        <p class="text-xs text-rose-700 mb-2">${escapeHtml(message)}</p>
+                        <h4 class="text-xl font-bold text-rose-900 mb-4">${escapeHtml(verdictTitle)}</h4>
                         
-                        ${complianceNote ? `
-                        <div class="bg-rose-100/70 border border-rose-200/80 rounded-xl p-3 text-xs text-rose-900 text-right rtl:text-right ltr:text-left leading-relaxed mb-4">
-                            <i class="fa-solid fa-circle-info text-rose-700 mr-1 ml-1"></i>
-                            ${escapeHtml(complianceNote)}
-                        </div>` : ''}
+                        <div class="bg-rose-100/80 border border-rose-200 rounded-xl p-3 text-xs font-medium text-rose-900 text-center leading-relaxed mb-4">
+                            <i class="fa-solid fa-shield-halved text-rose-700 ml-1 mr-1"></i>
+                            ${escapeHtml(ncaStandardText)}
+                        </div>
 
                         <div class="bg-white p-3 rounded-xl border border-rose-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
                             ${escapeHtml(link)}
@@ -467,6 +460,7 @@
             }
         }
 
+        // قراءة QR Code من صورة مرفوعة بدقة عالية
         function handleQrUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -474,44 +468,64 @@
             document.getElementById('qrInputForm').classList.add('hidden');
             document.getElementById('qrLoading').classList.remove('hidden');
 
-            let formData = new FormData();
-            formData.append('file', file);
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
 
-            fetch('/scan-qr', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('qrLoading').classList.add('hidden');
-                const resultDiv = document.getElementById('qrResult');
-                resultDiv.classList.remove('hidden');
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "attemptBoth"
+                    });
 
-                const isSafe = (data.is_safe === true || (data.status !== 'Dangerous' && data.result !== 'Phishing'));
-                renderResult(resultDiv, data.extracted_url || 'N/A', isSafe, data);
-            })
-            .catch(err => {
-                document.getElementById('qrLoading').classList.add('hidden');
-                document.getElementById('qrInputForm').classList.remove('hidden');
-                alert(currentLang === 'ar' ? 'حدث خطأ أثناء قراءة الـ QR' : 'Error reading QR image');
-            });
+                    if (code && code.data) {
+                        sendUrlToBackend(code.data.trim(), 'qrResult', 'qrLoading', 'qrInputForm');
+                    } else {
+                        // محاولة احتياطية عبر السيرفر إذا لم تُقرأ الصورة في المتصفح
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        fetch('/scan-qr', { method: 'POST', body: formData })
+                            .then(res => res.json())
+                            .then(data => {
+                                document.getElementById('qrLoading').classList.add('hidden');
+                                const resultDiv = document.getElementById('qrResult');
+                                resultDiv.classList.remove('hidden');
+                                renderResult(resultDiv, data.extracted_url || 'لم يتم العثور على رابط', data.is_safe === true);
+                            })
+                            .catch(() => {
+                                document.getElementById('qrLoading').classList.add('hidden');
+                                document.getElementById('qrInputForm').classList.remove('hidden');
+                                alert(currentLang === 'ar' ? 'تعذر قراءة رمز QR من الصورة، تأكد من وضوحها.' : 'Could not read QR code from image.');
+                            });
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
-        let videoStream = null;
+        // تشغيل الكاميرا للمسح المباشر
         function toggleCamera() {
             const container = document.getElementById('cameraContainer');
             const t = i18n[currentLang];
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                    .then(function(stream) {
+                    .then(function (stream) {
                         videoStream = stream;
                         const video = document.getElementById('qrVideo');
                         video.srcObject = stream;
                         video.setAttribute("playsinline", true);
                         video.play();
+                        scanAnimationId = requestAnimationFrame(tickQrCamera);
                     })
-                    .catch(function(err) {
+                    .catch(function (err) {
                         alert(t.camError + err.message);
                         container.classList.add('hidden');
                     });
@@ -520,7 +534,41 @@
             }
         }
 
+        // التقاط وقراءة رمز QR تلقائياً من بث الكاميرا
+        function tickQrCamera() {
+            const video = document.getElementById('qrVideo');
+            const canvas = document.getElementById('qrCanvas');
+
+            if (!videoStream) return;
+
+            if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "attemptBoth"
+                });
+
+                if (code && code.data) {
+                    const extractedUrl = code.data.trim();
+                    stopCamera();
+                    document.getElementById('qrInputForm').classList.add('hidden');
+                    document.getElementById('qrLoading').classList.remove('hidden');
+                    sendUrlToBackend(extractedUrl, 'qrResult', 'qrLoading', 'qrInputForm');
+                    return;
+                }
+            }
+            scanAnimationId = requestAnimationFrame(tickQrCamera);
+        }
+
         function stopCamera() {
+            if (scanAnimationId) {
+                cancelAnimationFrame(scanAnimationId);
+                scanAnimationId = null;
+            }
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
