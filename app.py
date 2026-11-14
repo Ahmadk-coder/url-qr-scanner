@@ -2,12 +2,8 @@ from flask import Flask, render_template, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-import joblib  # في حال كنت تحمّل نموذج Random Forest مسبقاً عبر joblib أو pickle
 
 app = Flask(__name__)
-
-# (اختياري) يمكنك تحميل نموذج الذكاء الاصطناعي المدرب مسبقاً هنا
-# rf_model = joblib.load('random_forest_model.pkl')
 
 def analyze_web_content(url):
     """
@@ -76,20 +72,24 @@ def scan_url():
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
     
-    # تنفيذ الفحص الديناميكي ومحتوى الصفحة (الكود الجديد المطلوب من الدكتور)
+    # تنفيذ الفحص الديناميكي ومحتوى الصفحة
     content_features = analyze_web_content(target_url)
     
-    # منطق اتخاذ القرار (يمكنك دمجه مع نموذج الـ Random Forest أو بناء القواعد الأمنية)
+    # منطق اتخاذ القرار
     is_phishing = (
         content_features["external_form_action"] == 1 or 
         content_features["has_password_field"] == 1 or
         content_features["suspicious_keywords_in_content"] > 3
     )
     
-    result = "Phishing" if is_phishing else "Safe"
+    result_text = "Phishing" if is_phishing else "Safe"
     
+    # إرسال كافة المفاتيح لكي تتعرف عليها الواجهة الأمامية تماماً ولا تظهر كلمة undefined
     return jsonify({
-        "result": result, 
+        "result": result_text,
+        "status": result_text,
+        "message": result_text,
+        "is_safe": not is_phishing,
         "content_analysis": content_features
     })
 
