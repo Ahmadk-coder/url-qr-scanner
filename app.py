@@ -7,16 +7,21 @@ app = Flask(__name__)
 
 def analyze_web_content(url):
     """
-    الدالة المسؤولة عن تلبية طلب الدكتور:
-    دخول السيرفر للموقع المستهدف، تتبع كود الـ HTML، 
+    الدالة المسؤولة عن فحص محتوى الصفحة، تتبع كود الـ HTML، 
     وفحص حقول كلمات المرور والنماذج (Forms) للتأكد مما إذا كانت ترسل البيانات لدومينات خارجية.
     """
     features = {
         "has_password_field": 0,
         "external_form_action": 0,
         "suspicious_keywords_in_content": 0,
-        "page_reachable": 0
+        "page_reachable": 0,
+        "is_https": 0
     }
+    
+    # 1. التحقق الصارم من بروتوكول HTTPS
+    parsed_url = urlparse(url)
+    if parsed_url.scheme == 'https':
+        features["is_https"] = 1
     
     try:
         # إرسال طلب HTTP آمن مع مهلة زمنية قصيرة لحماية السيرفر
@@ -28,11 +33,11 @@ def analyze_web_content(url):
             html_content = response.text
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # 1. البحث عن حقول إدخال كلمة المرور (مؤشر تصيد لسرقة الباسوورد)
+            # 2. البحث عن حقول إدخال كلمة المرور (مؤشر تصيد لسرقة الباسوورد)
             if soup.find('input', {'type': 'password'}):
                 features["has_password_field"] = 1
                 
-            # 2. تتبع نماذج الإدخال (Forms) ومعرفة أين تُرسل البيانات المدخلة
+            # 3. تتبع نماذج الإدخال (Forms) ومعرفة أين تُرسل البيانات المدخلة
             parsed_original_url = urlparse(url)
             forms = soup.find_all('form')
             for form in forms:
@@ -44,7 +49,7 @@ def analyze_web_content(url):
                         features["external_form_action"] = 1
                         break
             
-            # 3. تتبع الكلمات المفتاحية الشائعة في صفحات التصيد داخل محتوى الصفحة
+            # 4. تتبع الكلمات المفتاحية الشائعة في صفحات التصيد داخل محتوى الصفحة
             suspicious_words = ['login', 'signin', 'verify', 'update', 'account', 'banking', 'secure', 'تسجيل', 'تحديث', 'حسابك']
             page_text = soup.get_text().lower()
             for word in suspicious_words:
@@ -52,7 +57,6 @@ def analyze_web_content(url):
                     features["suspicious_keywords_in_content"] += 1
                     
     except requests.exceptions.RequestException:
-        # لو الرابط غير متاح أو وهمي
         features["page_reachable"] = 0
         
     return features
@@ -60,7 +64,6 @@ def analyze_web_content(url):
 
 @app.route('/')
 def home():
-    # عرض الصفحة الرئيسية
     return render_template('index.html')
 
 
@@ -72,33 +75,32 @@ def scan_url():
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
     
-    # التحقق من بروتوكول الرابط (إذا كان HTTP يعتبر تنبيه أمني أولي)
-    parsed_url = urlparse(target_url)
-    is_http = parsed_url.scheme == 'http'
-    
-    # تنفيذ الفحص الديناميكي ومحتوى الصفحة
+    # تنفيذ الفحص ومحتوى الصفحة
     content_features = analyze_web_content(target_url)
     
-    # منطق اتخاذ القرار الشامل
-    is_phishing = (
+    # قواعد القرار الأمنية: الموقع يعتبر مشبوه/غير آمن إذا كان:
+    # - يستخدم HTTP (ليس HTTPS)
+    # - أو يحتوي على فورم يرسل لخارج الدومين
+    # - أو يحتوي على حقل باسوورد في رابط غير مشفر
+    # - أو يفتقد لشهادة الأمان
+    is_phishing_or_unsafe = (
+        content_features["is_https"] == 0 or
         content_features["external_form_action"] == 1 or 
         content_features["has_password_field"] == 1 or
         content_features["suspicious_keywords_in_content"] > 3 or
         content_features["page_reachable"] == 0
     )
     
-    # تحديد الحالة بدقة
-    status_text = "Phishing / Risky" if is_phishing else "Legitimate / Safe"
-    short_status = "Phishing" if is_phishing else "Safe"
+    # تحديد النتيجة بدقة تامة ومنع التناقض
+    result_text = "Risky / Insecure" if is_phishing_or_unsafe else "Legitimate / Safe"
+    short_status = "Phishing" if is_phishing_or_unsafe else "Safe"
     
-    # إرسال كافة المتغيرات المحتملة لتتطابق مع الواجهة الأمامية وتمنع ظهور undefined
     return jsonify({
-        "status": short_status,
         "result": short_status,
-        "message": status_text,
+        "status": short_status,
+        "message": result_text,
         "prediction": short_status,
-        "is_safe": not is_phishing,
-        "protocol_warning": "Insecure HTTP Protocol" if is_http else None,
+        "is_safe": not is_phishing_or_unsafe,
         "content_analysis": content_features
     })
 
