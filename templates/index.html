@@ -410,7 +410,7 @@
             });
         }
 
-        // عرض النتيجة الموحدة للروابط والـ QR (محدثة لدعم الترجمة وكلمة "مشبوه")
+        // عرض النتيجة الموحدة للروابط والـ QR
         function renderResult(container, link, data) {
             const t = i18n[currentLang];
             
@@ -422,7 +422,7 @@
             if (score >= 80) {
                 verdictTitle = t.safeTitle;
             } else if (score >= 40) {
-                verdictTitle = t.suspiciousTitle; // "الموقع مشبوه"
+                verdictTitle = t.suspiciousTitle;
             } else {
                 verdictTitle = t.unsafeTitle;
             }
@@ -587,7 +587,7 @@
             }
         }
 
-        // التقاط وقراءة رمز QR تلقائياً من بث الكاميرا
+        // التقاط وقراءة رمز QR تلقائياً من بث الكاميرا (تم تصحيح inversionAttempts لتصبح attemptBoth)
         function tickQrCamera() {
             const video = document.getElementById('qrVideo');
             const canvas = document.getElementById('qrCanvas');
@@ -602,7 +602,7 @@
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "badgeBoth"
+                    inversionAttempts: "attemptBoth"
                 });
 
                 if (code && code.data) {
