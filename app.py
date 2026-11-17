@@ -35,14 +35,18 @@ def evaluate_url_nca(raw_url):
     2. فحص بنية الرابط للكشف عن التصيد والتمويه.
     3. فحص محتوى الصفحة الفعلي وسلوك النماذج (Forms).
     """
+    warnings = []
+    
     if not raw_url or not isinstance(raw_url, str):
-        return False, 0
+        warnings.append("الرابط المدخل غير صالح.")
+        return False, 0, warnings
 
     url = raw_url.strip()
 
     # رفض فوري لأي رابط غير مشفر يبدأ بـ http://
     if url.lower().startswith('http://'):
-        return False, 0
+        warnings.append("مخالف لمعايير الهيئة الوطنية للأمن السيبراني: الرابط غير مشفر (يستخدم بروتوكول HTTP المهدد للبيانات).")
+        return False, 0, warnings
 
     # إذا لم يكتب المستخدم البروتوكول نضيف https:// للفحص
     if not url.lower().startswith('https://'):
@@ -55,23 +59,26 @@ def evaluate_url_nca(raw_url):
 
     # التحقق من صحة بنية النطاق
     if not domain or '.' not in domain or ' ' in domain:
-        return False, 0
+        warnings.append("بنية النطاق غير صالحة.")
+        return False, 0, warnings
 
     # اعتماد النطاقات الموثوقة بعد ضمان وجود HTTPS
     if any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS):
-        return True, 100
+        return True, 100, []
 
     risk_score = 0
-    score = 90  # نقطة بداية قياسية للمواقع الآمنة عبر HTTPS غير الموجودة في القائمة البيضاء
+    score = 90  # نقطة بداية قياسية للمواقع الآمنة عبر HTTPS
 
     # منع عناوين IP المباشرة
     if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain):
-        return False, 0
+        warnings.append("استخدام عنوان IP مباشر بدلاً من اسم نطاق موثوق.")
+        return False, 0, warnings
 
     # كشف رموز التمويه وانتحال النطاقات (Punycode / @ / كثرة النطاقات الفرعية)
     if '@' in url or 'xn--' in domain or domain.count('.') >= 3 or domain.count('-') >= 3:
         risk_score += 3
         score -= 30
+        warnings.append("تم اكتشاف رموز تمويه أو تراكيب مشبوهة في بنية الرابط.")
 
     # كشف الكلمات الحساسة المستخدمة في التصيد
     phishing_keywords = [
@@ -82,15 +89,17 @@ def evaluate_url_nca(raw_url):
     if any(kw in url.lower() for kw in phishing_keywords):
         risk_score += 3
         score -= 35
+        warnings.append("اكتشاف كلمات حساسة تستخدم عادة في عمليات التصيد الاحتيالي (Phishing).")
 
     # كشف الامتدادات عالية الخطورة
     suspicious_tlds = ('.xyz', '.top', '.club', '.tk', '.ml', '.ga', '.cf', '.gq', '.buzz', '.click', '.zip', '.mov')
     if domain.endswith(suspicious_tlds):
         risk_score += 3
         score -= 35
+        warnings.append("امتداد النطاق (TLD) مصنف ضمن الامتدادات عالية الخطورة.")
 
     if risk_score >= 3:
-        return False, max(10, score)
+        return False, max(10, score), warnings
 
     # الفحص الديناميكي للموقع وشهادة SSL ومحتوى HTML
     try:
@@ -99,7 +108,8 @@ def evaluate_url_nca(raw_url):
 
         # التأكد أن إعادة التوجيه لم تنقل المستخدم لرابط غير مشفر
         if not response.url.lower().startswith('https://'):
-            return False, 20
+            warnings.append("إعادة توجيه الرابط أدت إلى موقع غير مشفر (HTTP).")
+            return False, 20, warnings
 
         final_domain = urlparse(response.url).netloc.lower().split(':')[0].replace('www.', '')
 
@@ -110,34 +120,42 @@ def evaluate_url_nca(raw_url):
             for form in soup.find_all('form'):
                 action = form.get('action', '').strip()
                 if action.lower().startswith('http://'):
-                    return False, 10
+                    warnings.append("يحتوي الموقع على نموذج إدخال يرسل البيانات عبر بروتوكول غير مشفر.")
+                    return False, 10, warnings
                 if action.lower().startswith('https://'):
                     action_domain = urlparse(action).netloc.lower().split(':')[0].replace('www.', '')
                     if action_domain and action_domain != final_domain:
+                        warnings.append("نموذج إدخال البيانات يوجه المعلومات إلى نطاق خارجي مختلف.")
                         score -= 25
 
             # فحص حقول كلمة المرور عند وجود أي مؤشر اشتباه
             if soup.find('input', {'type': 'password'}) and risk_score >= 1:
-                return False, 15
+                warnings.append("وجود حقل كلمة مرور في صفحة ذات مؤشرات اشتباه.")
+                return False, 15, warnings
         elif response.status_code >= 500:
-            return False, 30
+            warnings.append("استجابة الخادم المستهدف غير مستقرة أو تحتوي على خطأ.")
+            return False, 30, warnings
 
     except requests.exceptions.SSLError:
-        return False, 0
+        warnings.append("فشل في التحقق من شهادة الأمان SSL/TLS (الشهادة منتهية أو غير صالحة).")
+        return False, 0, warnings
     except requests.exceptions.RequestException:
         score -= 20
+        warnings.append("تعذر الوصول للموقع أو انتهت مهلة الاتصال.")
 
     score = max(0, min(100, score))
-    return True, score
+    is_safe = score >= 50
+    return is_safe, score, warnings
 
 
-def build_payload(is_safe, score=100, extracted_url=None):
+def build_payload(is_safe, score=100, warnings=None, extracted_url=None):
     status_label = "Safe" if is_safe else "Dangerous"
     data = {
         "status": status_label,
         "result": status_label,
         "is_safe": is_safe,
-        "score": score  # الحقل المضاف لإرسال نسبة الأمان للواجهة
+        "score": score,
+        "warnings": warnings or []
     }
     if extracted_url is not None:
         data["extracted_url"] = extracted_url
@@ -157,8 +175,8 @@ def scan_url():
     if not target_url:
         return jsonify({"error": "No URL provided"}), 400
 
-    is_safe, score = evaluate_url_nca(target_url)
-    return jsonify(build_payload(is_safe, score))
+    is_safe, score, warnings = evaluate_url_nca(target_url)
+    return jsonify(build_payload(is_safe, score, warnings))
 
 
 @app.route('/scan-qr', methods=['POST'])
@@ -168,19 +186,19 @@ def scan_qr():
 
     file = request.files['file']
     if not file or not PYZBAR_AVAILABLE:
-        return jsonify(build_payload(False, 0, "تعذر قراءة الرمز"))
+        return jsonify(build_payload(False, 0, ["تعذر قراءة الرمز أو مكتبة pyzbar غير متاحة."], "تعذر قراءة الرمز"))
 
     try:
         img = Image.open(io.BytesIO(file.read()))
         decoded_objects = decode_qr(img)
         if not decoded_objects:
-            return jsonify(build_payload(False, 0, "لم يتم العثور على رمز QR صالح"))
+            return jsonify(build_payload(False, 0, ["لم يتم العثور على رمز QR صالح في الصورة."], "لم يتم العثور على رمز QR صالح"))
 
         extracted_url = decoded_objects[0].data.decode('utf-8').strip()
-        is_safe, score = evaluate_url_nca(extracted_url)
-        return jsonify(build_payload(is_safe, score, extracted_url))
+        is_safe, score, warnings = evaluate_url_nca(extracted_url)
+        return jsonify(build_payload(is_safe, score, warnings, extracted_url))
     except Exception:
-        return jsonify(build_payload(False, 0, "خطأ في قراءة الصورة"))
+        return jsonify(build_payload(False, 0, ["حدث خطأ أثناء معالجة وقراءة الصورة."], "خطأ في قراءة الصورة"))
 
 
 if __name__ == '__main__':
