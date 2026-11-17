@@ -161,7 +161,7 @@
                 </div>
 
                 <div id="urlHint" class="text-xs text-slate-400 leading-relaxed">
-                    * سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع قواعد بيانات التصيد والاحتيال والذكاء الاصطناعي.
+                    * سيتم تحليل نطاق الرابط، بروتوكول الأمان HTTPS، ومطابقته مع معايير الهيئة الوطنية للأمن السيبراني.
                 </div>
 
                 <button onclick="processUrlCheck()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition flex items-center justify-center space-x-2 rtl:space-x-reverse shadow-md shadow-blue-600/20">
@@ -263,7 +263,8 @@
                 alertEnterUrl: "الرجاء إدخال رابط الموقع أولاً.",
                 camError: "تعذر الوصول لكاميرا الجهاز: ",
                 safeTitle: "الموقع يبدو آمن",
-                unsafeTitle: "الموقع يبدو غير آمن أو مشبوه",
+                suspiciousTitle: "الموقع مشبوه",
+                unsafeTitle: "الموقع غير آمن أو مشبوه",
                 ncaNote: "تم الفحص والتقييم حسب معايير الهيئة الوطنية للأمن السيبراني",
                 securityScore: "نسبة الأمان المقدرة"
             },
@@ -299,7 +300,8 @@
                 alertEnterUrl: "Please enter a valid website link first.",
                 camError: "Could not access camera: ",
                 safeTitle: "The website appears safe",
-                unsafeTitle: "The website appears unsafe or suspicious",
+                suspiciousTitle: "The website appears suspicious",
+                unsafeTitle: "The website appears unsafe",
                 ncaNote: "Evaluated according to National Cybersecurity Authority (NCA) standards",
                 securityScore: "Estimated Security Score"
             }
@@ -408,15 +410,22 @@
             });
         }
 
-        // عرض النتيجة الموحدة للروابط والـ QR (محدثة لدعم نسبة الأمان والملاحظات)
+        // عرض النتيجة الموحدة للروابط والـ QR (محدثة لدعم الترجمة وكلمة "مشبوه")
         function renderResult(container, link, data) {
             const t = i18n[currentLang];
             
-            // استخراج القيم من استجابة الباك إند (نسبة الأمان، الحالة، الملاحظات)
             const score = typeof data === 'object' && data.score !== undefined ? data.score : 100;
-            const statusText = typeof data === 'object' && data.status ? data.status : (score >= 80 ? t.safeTitle : t.unsafeTitle);
             const warnings = typeof data === 'object' && data.warnings ? data.warnings : [];
-            const isSafe = score >= 80;
+            const isSafe = score >= 50;
+
+            let verdictTitle;
+            if (score >= 80) {
+                verdictTitle = t.safeTitle;
+            } else if (score >= 40) {
+                verdictTitle = t.suspiciousTitle; // "الموقع مشبوه"
+            } else {
+                verdictTitle = t.unsafeTitle;
+            }
 
             let themeClass;
             if (score >= 80) {
@@ -471,9 +480,9 @@
                     <div class="w-12 h-12 ${themeClass.iconBg} rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
                         <i class="${themeClass.icon}"></i>
                     </div>
-                    <h4 class="text-xl font-bold ${themeClass.titleColor} mb-2">${escapeHtml(statusText)}</h4>
+                    <h4 class="text-xl font-bold ${themeClass.titleColor} mb-2">${escapeHtml(verdictTitle)}</h4>
                     
-                    <!-- Security Score & Progress Bar (إضافة بناءً على طلب الدكتور) -->
+                    <!-- Security Score & Progress Bar -->
                     <div class="mb-4 bg-white/70 p-3 rounded-xl border border-slate-200/60">
                         <div class="flex justify-between items-center mb-1 text-xs font-bold text-slate-700">
                             <span>${escapeHtml(t.securityScore)}</span>
@@ -531,7 +540,6 @@
                     if (code && code.data) {
                         sendUrlToBackend(code.data.trim(), 'qrResult', 'qrLoading', 'qrInputForm');
                     } else {
-                        // محاولة احتياطية عبر السيرفر إذا لم تُقرأ الصورة في المتصفح
                         const formData = new FormData();
                         formData.append('file', file);
 
@@ -594,7 +602,7 @@
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "attemptBoth"
+                    inversionAttempts: "badgeBoth"
                 });
 
                 if (code && code.data) {
