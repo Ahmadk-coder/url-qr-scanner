@@ -141,11 +141,12 @@ def evaluate_url_nca(raw_url):
         score -= 40
         warnings.append("فشل في التحقق من صحة شهادة الأمان SSL/TLS الخاصة بالموقع المستهدف.")
     except requests.exceptions.RequestException:
-        score -= 15
-        warnings.append("تعذر الوصول للموقع المستهدف أو انتهت مهلة الاتصال.")
+        # التعديل الأكاديمي: إذا تعذر الوصول للموقع، نصنفه كمنطقة اشتباه/غير مؤكد (40% لتظهر باللون البرتقالي ومشبوه)
+        score = 40
+        warnings.append("تنبيه أمني: تعذر الوصول للموقع المستهدف أو انتهت مهلة الاتصال (موقع غير متاح للتحقق).")
 
     score = max(0, min(100, score))
-    is_safe = score >= 50  # 50 فأكثر يعتبر مقبول/آمن، وأقل يعتبر مشبوه
+    is_safe = score >= 50  # 50 فأكثر يعتبر آمن، وأقل يعتبر مشبوه
     return is_safe, score, warnings
 
 
