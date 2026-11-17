@@ -14,7 +14,7 @@ except ImportError:
 
 app = Flask(__name__)
 
-# نطاقات موثوقة (تُعتمد فقط بعد التحقق من وجود تشفير HTTPS صالح)
+# نطاقات موثوقة أساسية
 TRUSTED_DOMAINS = [
     "url-qr-scanner.onrender.com",
     "google.com",
@@ -28,12 +28,29 @@ TRUSTED_DOMAINS = [
     "apple.com"
 ]
 
+# قائمة أشهر نطاقات اختصار الروابط وخدمات الـ QR
+SHORTENER_DOMAINS = [
+    "bit.ly",
+    "tinyurl.com",
+    "t.co",
+    "goo.gl",
+    "ow.ly",
+    "buff.ly",
+    "lnkd.in",
+    "t.me",
+    "qr.ae",
+    "me-qr.com",
+    "qrco.de",
+    "is.gd",
+    "v.gd"
+]
+
 def evaluate_url_nca(raw_url):
     """
     تقييم أمان الرابط ومحتواه وفق ضوابط الهيئة الوطنية للأمن السيبراني (NCA):
-    1. تقييم التشفير بخصم وزني واقعي عند غياب HTTPS.
-    2. فحص بنية الرابط للكشف عن التصيد والتمويه.
-    3. فحص محتوى الصفحة الفعلي وسلوك النماذج (Forms).
+    1. كشف الروابط المختصرة وتتبع مسارها (Redirect Resolution).
+    2. تقييم التشفير بخصم وزني واقعي.
+    3. فحص بنية الرابط والمحتوى الفعلي والنماذج.
     """
     warnings = []
     score = 100  # نبدأ من 100 ونخصم بناءً على المخاطر المكتشفة
@@ -44,11 +61,11 @@ def evaluate_url_nca(raw_url):
 
     url = raw_url.strip()
 
-    # معالجة http:// بخصم وزني واقعي لزيادة موثوقية النظام
+    # معالجة http:// بخصم وزني واقعي
     if url.lower().startswith('http://'):
         score -= 40  # خصم 40 نقطة لغياب التشفير حسب معايير NCA
         warnings.append("مخالف لمعايير الهيئة الوطنية للأمن السيبراني: الرابط غير مشفر (يستخدم بروتوكول HTTP).")
-        url = 'https://' + url[7:]  # تحويل مؤقت للفحص التقني الخفي
+        url = 'https://' + url[7:]
     elif not url.lower().startswith('https://'):
         url = 'https://' + url
 
@@ -62,9 +79,15 @@ def evaluate_url_nca(raw_url):
         warnings.append("بنية النطاق غير صالحة أو غير متوافقة مع المعايير القياسية.")
         return False, 0, warnings
 
-    # اعتماد النطاقات الموثوقة بعد ضمان وجود HTTPS أو تعديل السكور
+    # فحص ما إذا كان الرابط تابعاً لخدمة اختصار روابط (Shortener)
+    is_shortener = any(domain == sd or domain.endswith('.' + sd) for sd in SHORTENER_DOMAINS)
+    if is_shortener:
+        score -= 15  # خصم خفيف لأن الروابط المختصرة تخفي الوجهة الأصلية وتستخدم في التصيد
+        warnings.append("تنبيه أمني: هذا رابط مختصر (Shortened URL)، وغالباً ما تُستعمل الروابط المختصرة لإخفاء الوجهة الحقيقية للموقع.")
+
+    # اعتماد النطاقات الموثوقة الكبرى
     if any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS):
-        score = max(score, 60)
+        score = max(score, 80)
         is_safe = score >= 50
         return is_safe, score, warnings
 
@@ -75,7 +98,7 @@ def evaluate_url_nca(raw_url):
         warnings.append("محظور حسب معايير الأمن السيبراني: استخدام عنوان IP مباشر بدلاً من اسم نطاق معتمد.")
         return False, 0, warnings
 
-    # كشف رموز التمويه وانتحال النطاقات (Punycode / @ / كثرة النطاقات الفرعية)
+    # كشف رموز التمويه وانتحال النطاقات
     if '@' in url or 'xn--' in domain or domain.count('.') >= 3 or domain.count('-') >= 3:
         risk_score += 3
         score -= 30
@@ -103,21 +126,26 @@ def evaluate_url_nca(raw_url):
         score = max(5, score - 20)
         return False, score, warnings
 
-    # الفحص الديناميكي للموقع وشهادة SSL ومحتوى HTML
+    # الفحص الديناميكي وتتبع إعادة التوجيه للرابط (Redirect Resolution)
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
         response = requests.get(url, headers=headers, timeout=6, allow_redirects=True, verify=True)
 
-        if not response.url.lower().startswith('https://'):
-            score -= 20
-            warnings.append("إعادة توجيه الرابط أدت إلى موقع غير مشفر بالكامل.")
+        final_url = response.url
+        final_domain = urlparse(final_url).netloc.lower().split(':')[0].replace('www.', '')
 
-        final_domain = urlparse(response.url).netloc.lower().split(':')[0].replace('www.', '')
+        # إذا كان الرابط المختصر قام بتوجيهنا إلى صفحة أخرى، نوضح ذلك للمستخدم
+        if final_url != url:
+            warnings.append(f"تتبع إعادة التوجيه: الرابط المختصر يوجّه المستخدم إلى النطاق النهائي ({final_domain}).")
+
+        if not final_url.lower().startswith('https://'):
+            score -= 20
+            warnings.append("إعادة توجيه الرابط أدت في النهاية إلى موقع غير مشفر بالكامل.")
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # فحص النماذج
+            # فحص النماذج (Forms)
             for form in soup.find_all('form'):
                 action = form.get('action', '').strip()
                 if action.lower().startswith('http://'):
@@ -141,9 +169,13 @@ def evaluate_url_nca(raw_url):
         score -= 40
         warnings.append("فشل في التحقق من صحة شهادة الأمان SSL/TLS الخاصة بالموقع المستهدف.")
     except requests.exceptions.RequestException:
-        # التعديل الأكاديمي: إذا تعذر الوصول للموقع، نصنفه كمنطقة اشتباه/غير مؤكد (40% لتظهر باللون البرتقالي ومشبوه)
-        score = 40
-        warnings.append("تنبيه أمني: تعذر الوصول للموقع المستهدف أو انتهت مهلة الاتصال (موقع غير متاح للتحقق).")
+        # إذا كان الرابط المختصر يحجب طلبات الفحص الآلي
+        if is_shortener:
+            score = max(score, 75)
+            warnings.append("ملاحظة أمنية: الرابط المختصر صالح ويعمل عند فتحه بالمتصفح، ولكن تعذر الفحص العميق لمحتواه لوجود أنظمة حماية تحجب السيرفرات الآلية.")
+        else:
+            score = 40
+            warnings.append("تنبيه أمني: تعذر الوصول للموقع المستهدف أو انتهت مهلة الاتصال (موقع غير متاح للتحقق).")
 
     score = max(0, min(100, score))
     is_safe = score >= 50  # 50 فأكثر يعتبر آمن، وأقل يعتبر مشبوه
