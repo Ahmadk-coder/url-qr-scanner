@@ -264,7 +264,8 @@
                 camError: "تعذر الوصول لكاميرا الجهاز: ",
                 safeTitle: "الموقع يبدو آمن",
                 unsafeTitle: "الموقع يبدو غير آمن أو مشبوه",
-                ncaNote: "تم الفحص والتقييم حسب معايير الهيئة الوطنية للأمن السيبراني"
+                ncaNote: "تم الفحص والتقييم حسب معايير الهيئة الوطنية للأمن السيبراني",
+                securityScore: "نسبة الأمان المقدرة"
             },
             en: {
                 pageTitle: "Website Scanner - Cyber Security Platform",
@@ -299,7 +300,8 @@
                 camError: "Could not access camera: ",
                 safeTitle: "The website appears safe",
                 unsafeTitle: "The website appears unsafe or suspicious",
-                ncaNote: "Evaluated according to National Cybersecurity Authority (NCA) standards"
+                ncaNote: "Evaluated according to National Cybersecurity Authority (NCA) standards",
+                securityScore: "Estimated Security Score"
             }
         };
 
@@ -397,7 +399,7 @@
                 document.getElementById(loadingId).classList.add('hidden');
                 const resultDiv = document.getElementById(resultId);
                 resultDiv.classList.remove('hidden');
-                renderResult(resultDiv, urlToCheck, data.is_safe === true);
+                renderResult(resultDiv, urlToCheck, data);
             })
             .catch(() => {
                 document.getElementById(loadingId).classList.add('hidden');
@@ -406,58 +408,101 @@
             });
         }
 
-        // عرض النتيجة الموحدة للروابط والـ QR
-        function renderResult(container, link, isSafe) {
+        // عرض النتيجة الموحدة للروابط والـ QR (محدثة لدعم نسبة الأمان والملاحظات)
+        function renderResult(container, link, data) {
             const t = i18n[currentLang];
-            const verdictTitle = isSafe ? t.safeTitle : t.unsafeTitle;
-            const ncaStandardText = t.ncaNote;
+            
+            // استخراج القيم من استجابة الباك إند (نسبة الأمان، الحالة، الملاحظات)
+            const score = typeof data === 'object' && data.score !== undefined ? data.score : 100;
+            const statusText = typeof data === 'object' && data.status ? data.status : (score >= 80 ? t.safeTitle : t.unsafeTitle);
+            const warnings = typeof data === 'object' && data.warnings ? data.warnings : [];
+            const isSafe = score >= 80;
 
-            if (isSafe) {
-                container.innerHTML = `
-                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center">
-                        <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
-                            <i class="fa-solid fa-check"></i>
-                        </div>
-                        <h4 class="text-xl font-bold text-emerald-900 mb-4">${escapeHtml(verdictTitle)}</h4>
-                        
-                        <div class="bg-emerald-100/80 border border-emerald-200 rounded-xl p-3 text-xs font-medium text-emerald-900 text-center leading-relaxed mb-4">
-                            <i class="fa-solid fa-shield-halved text-emerald-700 ml-1 mr-1"></i>
-                            ${escapeHtml(ncaStandardText)}
-                        </div>
-
-                        <div class="bg-white p-3 rounded-xl border border-emerald-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
-                            ${escapeHtml(link)}
-                        </div>
-
-                        <div class="flex gap-2">
-                            <button onclick="resetForms()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition">${t.scanAnother}</button>
-                            <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="w-full border border-emerald-600 text-emerald-700 hover:bg-emerald-100 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center space-x-1 rtl:space-x-reverse">
-                                <span>${t.visitSite}</span>
-                                <i class="fa-solid fa-up-right-from-square text-xs"></i>
-                            </a>
-                        </div>
-                    </div>
-                `;
+            let themeClass;
+            if (score >= 80) {
+                themeClass = {
+                    bg: 'bg-emerald-50 border-emerald-200',
+                    iconBg: 'bg-emerald-500 text-white',
+                    icon: 'fa-solid fa-check',
+                    titleColor: 'text-emerald-900',
+                    boxBg: 'bg-emerald-100/80 border-emerald-200 text-emerald-900',
+                    linkBox: 'border-emerald-100',
+                    btn: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                    visitBtn: 'border-emerald-600 text-emerald-700 hover:bg-emerald-100',
+                    bar: 'bg-emerald-600'
+                };
+            } else if (score >= 40) {
+                themeClass = {
+                    bg: 'bg-amber-50 border-amber-200',
+                    iconBg: 'bg-amber-500 text-white',
+                    icon: 'fa-solid fa-triangle-exclamation',
+                    titleColor: 'text-amber-900',
+                    boxBg: 'bg-amber-100/80 border-amber-200 text-amber-900',
+                    linkBox: 'border-amber-100',
+                    btn: 'bg-amber-600 hover:bg-amber-700 text-white',
+                    visitBtn: 'border-amber-600 text-amber-700 hover:bg-amber-100',
+                    bar: 'bg-amber-500'
+                };
             } else {
-                container.innerHTML = `
-                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center">
-                        <div class="w-12 h-12 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                        </div>
-                        <h4 class="text-xl font-bold text-rose-900 mb-4">${escapeHtml(verdictTitle)}</h4>
-                        
-                        <div class="bg-rose-100/80 border border-rose-200 rounded-xl p-3 text-xs font-medium text-rose-900 text-center leading-relaxed mb-4">
-                            <i class="fa-solid fa-shield-halved text-rose-700 ml-1 mr-1"></i>
-                            ${escapeHtml(ncaStandardText)}
-                        </div>
-
-                        <div class="bg-white p-3 rounded-xl border border-rose-100 text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
-                            ${escapeHtml(link)}
-                        </div>
-                        <button onclick="resetForms()" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-sm font-medium transition">${t.scanAnotherLink}</button>
-                    </div>
-                `;
+                themeClass = {
+                    bg: 'bg-rose-50 border-rose-200',
+                    iconBg: 'bg-rose-500 text-white',
+                    icon: 'fa-solid fa-triangle-exclamation',
+                    titleColor: 'text-rose-900',
+                    boxBg: 'bg-rose-100/80 border-rose-200 text-rose-900',
+                    linkBox: 'border-rose-100',
+                    btn: 'bg-rose-600 hover:bg-rose-700 text-white',
+                    visitBtn: 'border-rose-600 text-rose-700 hover:bg-rose-100',
+                    bar: 'bg-rose-600'
+                };
             }
+
+            let warningsHtml = '';
+            if (warnings.length > 0) {
+                warningsHtml = `<ul class="list-disc list-inside text-xs space-y-1 mt-2 font-medium text-right rtl:text-right ltr:text-left">` +
+                    warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('') +
+                    `</ul>`;
+            } else {
+                warningsHtml = `<p class="text-xs font-medium mt-1">${escapeHtml(currentLang === 'ar' ? 'لا توجد ملاحظات أمنية سلبية، الرابط يطابق المعايير.' : 'No negative observations, URL complies with standards.')}</p>`;
+            }
+
+            container.innerHTML = `
+                <div class="${themeClass.bg} border rounded-2xl p-6 text-center transition-all">
+                    <div class="w-12 h-12 ${themeClass.iconBg} rounded-full flex items-center justify-center text-xl mx-auto mb-3 shadow-sm">
+                        <i class="${themeClass.icon}"></i>
+                    </div>
+                    <h4 class="text-xl font-bold ${themeClass.titleColor} mb-2">${escapeHtml(statusText)}</h4>
+                    
+                    <!-- Security Score & Progress Bar (إضافة بناءً على طلب الدكتور) -->
+                    <div class="mb-4 bg-white/70 p-3 rounded-xl border border-slate-200/60">
+                        <div class="flex justify-between items-center mb-1 text-xs font-bold text-slate-700">
+                            <span>${escapeHtml(t.securityScore)}</span>
+                            <span class="px-2.5 py-0.5 rounded-full bg-white shadow-sm text-slate-900 font-mono">${score}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div class="h-2 rounded-full ${themeClass.bar} transition-all duration-500" style="width: ${score}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="${themeClass.boxBg} border rounded-xl p-3 text-xs font-medium text-center leading-relaxed mb-4">
+                        <i class="fa-solid fa-shield-halved ml-1 mr-1"></i>
+                        ${escapeHtml(t.ncaNote)}
+                        ${warningsHtml}
+                    </div>
+
+                    <div class="bg-white p-3 rounded-xl border ${themeClass.linkBox} text-left text-xs font-mono text-slate-600 break-all mb-4" dir="ltr">
+                        ${escapeHtml(link)}
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="resetForms()" class="w-full ${themeClass.btn} py-2.5 rounded-xl text-sm font-medium transition">${escapeHtml(t.scanAnother)}</button>
+                        ${isSafe ? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="w-full border ${themeClass.visitBtn} py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center space-x-1 rtl:space-x-reverse">
+                            <span>${escapeHtml(t.visitSite)}</span>
+                            <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                        </a>` : ''}
+                    </div>
+                </div>
+            `;
         }
 
         // قراءة QR Code من صورة مرفوعة بدقة عالية
@@ -496,7 +541,7 @@
                                 document.getElementById('qrLoading').classList.add('hidden');
                                 const resultDiv = document.getElementById('qrResult');
                                 resultDiv.classList.remove('hidden');
-                                renderResult(resultDiv, data.extracted_url || 'لم يتم العثور على رابط', data.is_safe === true);
+                                renderResult(resultDiv, data.extracted_url || 'لم يتم العثور على رابط', data);
                             })
                             .catch(() => {
                                 document.getElementById('qrLoading').classList.add('hidden');
