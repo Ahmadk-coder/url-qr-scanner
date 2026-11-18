@@ -1,239 +1,157 @@
+import os
+import re
 from flask import Flask, render_template, request, jsonify
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
-import re
-import io
 from PIL import Image
-
-try:
-    from pyzbar.pyzbar import decode as decode_qr
-    PYZBAR_AVAILABLE = True
-except ImportError:
-    PYZBAR_AVAILABLE = False
+from pyzbar import pyzbar
+import io
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
-# نطاقات موثوقة أساسية
-TRUSTED_DOMAINS = [
-    "url-qr-scanner.onrender.com",
-    "google.com",
-    "github.com",
-    "ksu.edu.sa",
-    "absher.sa",
-    "iam.gov.sa",
-    "nafath.sa",
-    "nca.gov.sa",
-    "microsoft.com",
-    "apple.com"
-]
-
-# قائمة أشهر نطاقات اختصار الروابط وخدمات الـ QR
+# قائمة النطاقات المختصرة الشهيرة لمعالجة الروابط
 SHORTENER_DOMAINS = [
-    "bit.ly",
-    "tinyurl.com",
-    "t.co",
-    "goo.gl",
-    "ow.ly",
-    "buff.ly",
-    "lnkd.in",
-    "t.me",
-    "qr.ae",
-    "me-qr.com",
-    "qrco.de",
-    "is.gd",
-    "v.gd"
+    'bit.ly', 't.co', 'goo.gl', 'ow.ly', 'Me-qr.com', 
+    'tinyurl.com', 'lnkiy.in', 'is.gd', 'buff.ly'
 ]
 
-def evaluate_url_nca(raw_url):
+# كلمات التصيد الاحتيالي المستهدفة
+PHISHING_KEYWORDS = [
+    'login', 'signin', 'verify', 'update', 'absher', 
+    'nafath', 'stc', 'bank', 'account', 'secure', 'confirm'
+]
+
+def evaluate_url_nca(url):
     """
-    تقييم أمان الرابط ومحتواه وفق ضوابط الهيئة الوطنية للأمن السيبراني (NCA):
-    1. كشف الروابط المختصرة وتتبع مسارها (Redirect Resolution).
-    2. تقييم التشفير بخصم وزني واقعي.
-    3. فحص بنية الرابط والمحتوى الفعلي والنماذج.
+    خوارزمية تقييم المخاطر المتقدمة وفق معايير الهيئة الوطنية للأمن السيبراني (NCA Risk Scoring Model)
     """
+    score = 100
     warnings = []
-    score = 100  # نبدأ من 100 ونخصم بناءً على المخاطر المكتشفة
     
-    if not raw_url or not isinstance(raw_url, str):
-        warnings.append("الرابط المدخل غير صالح أو فارغ.")
-        return False, 0, warnings
-
-    url = raw_url.strip()
-
-    # معالجة http:// بخصم وزني واقعي
-    if url.lower().startswith('http://'):
-        score -= 40  # خصم 40 نقطة لغياب التشفير حسب معايير NCA
-        warnings.append("مخالف لمعايير الهيئة الوطنية للأمن السيبراني: الرابط غير مشفر (يستخدم بروتوكول HTTP).")
-        url = 'https://' + url[7:]
-    elif not url.lower().startswith('https://'):
+    # 1. التصحيح التلقائي للرابط إذا نسخ المستخدم الرابط بدون بروتوكول
+    if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
-    parsed = urlparse(url)
-    domain = parsed.netloc.lower().split(':')[0]
-    if domain.startswith('www.'):
-        domain = domain[4:]
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc.lower()
 
-    # التحقق من صحة بنية النطاق
-    if not domain or '.' not in domain or ' ' in domain:
-        warnings.append("بنية النطاق غير صالحة أو غير متوافقة مع المعايير القياسية.")
-        return False, 0, warnings
-
-    # فحص ما إذا كان الرابط تابعاً لخدمة اختصار روابط (Shortener)
-    is_shortener = any(domain == sd or domain.endswith('.' + sd) for sd in SHORTENER_DOMAINS)
-    if is_shortener:
-        score -= 15  # خصم خفيف لأن الروابط المختصرة تخفي الوجهة الأصلية وتستخدم في التصيد
-        warnings.append("تنبيه أمني: هذا رابط مختصر (Shortened URL)، وغالباً ما تُستعمل الروابط المختصرة لإخفاء الوجهة الحقيقية للموقع.")
-
-    # اعتماد النطاقات الموثوقة الكبرى
-    if any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS):
-        score = max(score, 80)
-        is_safe = score >= 50
-        return is_safe, score, warnings
-
-    risk_score = 0
-
-    # منع عناوين IP المباشرة
-    if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain):
-        warnings.append("محظور حسب معايير الأمن السيبراني: استخدام عنوان IP مباشر بدلاً من اسم نطاق معتمد.")
-        return False, 0, warnings
-
-    # كشف رموز التمويه وانتحال النطاقات
-    if '@' in url or 'xn--' in domain or domain.count('.') >= 3 or domain.count('-') >= 3:
-        risk_score += 3
-        score -= 30
-        warnings.append("تم اكتشاف رموز تمويه أو تراكيب مشبوهة في بنية الرابط (مثل انتحال النطاقات).")
-
-    # كشف الكلمات الحساسة المستخدمة في التصيد
-    phishing_keywords = [
-        'login', 'signin', 'verify', 'update', 'secure', 'account',
-        'banking', 'wallet', 'free', 'gift', 'prize', 'absher',
-        'nafath', 'confirm', 'aramco', 'stc', 'alrajhi', 'alinma', 'snb'
-    ]
-    if any(kw in url.lower() for kw in phishing_keywords):
-        risk_score += 3
-        score -= 35
-        warnings.append("اكتشاف كلمات حساسة تستخدم عادة في عمليات التصيد الاحتيالي (Phishing).")
-
-    # كشف الامتدادات عالية الخطورة
-    suspicious_tlds = ('.xyz', '.top', '.club', '.tk', '.ml', '.ga', '.cf', '.gq', '.buzz', '.click', '.zip', '.mov')
-    if domain.endswith(suspicious_tlds):
-        risk_score += 3
-        score -= 35
-        warnings.append("امتداد النطاق (TLD) مصنف ضمن الامتدادات عالية الخطورة المراقبة أمنياً.")
-
-    if risk_score >= 3:
-        score = max(5, score - 20)
-        return False, score, warnings
-
-    # الفحص الديناميكي وتتبع إعادة التوجيه للرابط (Redirect Resolution)
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=6, allow_redirects=True, verify=True)
-
-        final_url = response.url
-        final_domain = urlparse(final_url).netloc.lower().split(':')[0].replace('www.', '')
-
-        # إذا كان الرابط المختصر قام بتوجيهنا إلى صفحة أخرى، نوضح ذلك للمستخدم
-        if final_url != url:
-            warnings.append(f"تتبع إعادة التوجيه: الرابط المختصر يوجّه المستخدم إلى النطاق النهائي ({final_domain}).")
-
-        if not final_url.lower().startswith('https://'):
-            score -= 20
-            warnings.append("إعادة توجيه الرابط أدت في النهاية إلى موقع غير مشفر بالكامل.")
-
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # فحص النماذج (Forms)
-            for form in soup.find_all('form'):
-                action = form.get('action', '').strip()
-                if action.lower().startswith('http://'):
-                    score -= 25
-                    warnings.append("يحتوي الموقع على نموذج إدخال بيانات يرسل المعلومات عبر بروتوكول غير مشفر.")
-                if action.lower().startswith('https://'):
-                    action_domain = urlparse(action).netloc.lower().split(':')[0].replace('www.', '')
-                    if action_domain and action_domain != final_domain:
-                        score -= 20
-                        warnings.append("نموذج إدخال البيانات يوجه المعلومات إلى نطاق خارجي مختلف عن النطاق الأصلي.")
-
-            # فحص حقول كلمة المرور
-            if soup.find('input', {'type': 'password'}) and risk_score >= 1:
-                score -= 25
-                warnings.append("وجود حقل كلمة مرور في صفحة تحتوي على مؤشرات اشتباه أمني.")
-        elif response.status_code >= 500:
-            score -= 15
-            warnings.append("استجابة الخادم المستهدف غير مستقرة أو تواجه أعطالاً.")
-
-    except requests.exceptions.SSLError:
+    # 2. فحص البروتوكول (HTTP غير آمن)
+    if url.startswith('http://'):
         score -= 40
-        warnings.append("فشل في التحقق من صحة شهادة الأمان SSL/TLS الخاصة بالموقع المستهدف.")
+        warnings.append("تحذير أمني: الموقع لا يستخدم بروتوكول التشفير الآمن HTTP بدلاً من HTTPS.")
+
+    # 3. فحص الكلمات المفتاحية للتصيد الاحتيالي (Phishing Keywords)
+    url_lower = url.lower()
+    for kw in PHISHING_KEYWORDS:
+        if kw in url_lower:
+            score -= 35
+            warnings.append(f"تحذير: الرابط يحتوي على كلمة حساسة تستخدم غالباً في عمليات التصيد ({kw}).")
+
+    # 4. فحص الرموز المشبوهة مثل @ أو عناوين IP المباشرة
+    if '@' in url:
+        score -= 30
+        warnings.append("تحذير أمني: وجود رمز '@' في الرابط قد يكون محاولة لتمويه الوجهة الحقيقية.")
+    
+    # فحص ما إذا كان النطاق عبارة عن IP مباشر
+    ip_pattern = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+    if ip_pattern.match(domain):
+        score -= 40
+        warnings.append("تحذير عالي الخطورة: الرابط يستخدم عنوان IP مباشر بدلاً من نطاق رسمي موثق.")
+
+    # 5. تتبع إعادة التوجيه للرابط (Redirect Chain Resolution)
+    redirect_info = "الرابط مباشر ولا يوجد إعادة توجيه."
+    try:
+        response = requests.get(url, timeout=5, allow_redirects=True, headers={'User-Agent': 'Mozilla/5.0'})
+        if len(response.history) > 0:
+            final_domain = urlparse(response.url).netloc
+            redirect_info = f"تم رصد إعادة توجيه إلى النطاق النهائي: {final_domain}"
+            if final_domain != domain:
+                score -= 15
+                warnings.append(f"تحذير: تم توجيهك من نطاق مختلف إلى الوجهة ({final_domain}).")
     except requests.exceptions.RequestException:
-        # إذا كان الرابط المختصر يحجب طلبات الفحص الآلي
-        if is_shortener:
-            score = max(score, 75)
-            warnings.append("ملاحظة أمنية: الرابط المختصر صالح ويعمل عند فتحه بالمتصفح، ولكن تعذر الفحص العميق لمحتواه لوجود أنظمة حماية تحجب السيرفرات الآلية.")
-        else:
-            score = 40
-            warnings.append("تنبيه أمني: تعذر الوصول للموقع المستهدف أو انتهت مهلة الاتصال (موقع غير متاح للتحقق).")
+        score -= 20
+        warnings.append("تنبيه: تعذر الاتصال بالخادم المضيف للموقع (قد يكون الموقع غير متاح أو يحجب الفحص الآلي).")
 
+    # 6. فحص الروابط المختصرة
+    is_shortener = any(short_domain in domain for short_domain in SHORTENER_DOMAINS)
+    if is_shortener:
+        score -= 10
+        warnings.append("تنبيه: هذا الرابط مسجل كخدمة تقصير روابط، يرجى الحذر من الوجهة النهائية.")
+
+    # منع نزول النسبة تحت الصفر أو تجاوز 100
     score = max(0, min(100, score))
-    is_safe = score >= 50  # 50 فأكثر يعتبر آمن، وأقل يعتبر مشبوه
-    return is_safe, score, warnings
+    
+    # تحديد الحالة بناءً على النسبة
+    status = "آمن"
+    if score < 50:
+        status = "مشبوه جداً وخطير"
+    elif score < 80:
+        status = "مشبوه ويحتاج الحذر"
 
-
-def build_payload(is_safe, score=100, warnings=None, extracted_url=None):
-    status_label = "Safe" if is_safe else "Dangerous"
-    data = {
-        "status": status_label,
-        "result": status_label,
-        "is_safe": is_safe,
-        "score": score,
-        "warnings": warnings or []
-    }
-    if extracted_url is not None:
-        data["extracted_url"] = extracted_url
-    return data
-
+    return score, status, warnings, url, redirect_info
 
 @app.route('/')
 def home():
+    """عرض صفحة الواجهة الرئيسية"""
     return render_template('index.html')
 
-
 @app.route('/scan', methods=['POST'])
-def scan_url():
-    body = request.get_json() or {}
-    target_url = body.get('url', '').strip()
+def scan():
+    """مسار استقبال وفحص الروابط النصية"""
+    data = request.get_json()
+    if not data or 'url' not in data:
+        return jsonify({'error': 'بيانات غير صالحة'}), 400
+        
+    raw_url = data.get('url', '').strip()
+    if not raw_url:
+        return jsonify({'error': 'الرجاء إدخال رابط صحيح'}), 400
 
-    if not target_url:
-        return jsonify({"error": "No URL provided"}), 400
+    # تنفيذ خوارزمية الفحص الكاملة
+    score, status, warnings, normalized_url, redirect_info = evaluate_url_nca(raw_url)
 
-    is_safe, score, warnings = evaluate_url_nca(target_url)
-    return jsonify(build_payload(is_safe, score, warnings))
-
+    return jsonify({
+        'url': normalized_url,
+        'score': score,
+        'status': status,
+        'warnings': warnings,
+        'redirect_info': redirect_info
+    })
 
 @app.route('/scan-qr', methods=['POST'])
 def scan_qr():
+    """مسار فحص وفك شفرة باركود QR المرفوع كصورة على السيرفر (Pyzbar Fallback)"""
     if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
+        return jsonify({'error': 'لم يتم العثور على ملف الصورة'}), 400
+        
     file = request.files['file']
-    if not file or not PYZBAR_AVAILABLE:
-        return jsonify(build_payload(False, 0, ["تعذر قراءة الرمز أو مكتبة المعالجة غير متاحة."], "تعذر قراءة الرمز"))
+    if file.filename == '':
+        return jsonify({'error': 'لم يتم اختيار أي ملف'}), 400
 
     try:
-        img = Image.open(io.BytesIO(file.read()))
-        decoded_objects = decode_qr(img)
+        # قراءة الصورة وفك شفرة الباركود باستخدام pyzbar و Pillow
+        image = Image.open(file.stream)
+        decoded_objects = pyzbar.decode(image)
+        
         if not decoded_objects:
-            return jsonify(build_payload(False, 0, ["لم يتم العثور على رمز QR صالح في الصورة المرفوعة."], "لم يتم العثور على رمز QR صالح"))
+            return jsonify({'error': 'لم يتم العثور على رمز QR صالح داخل الصورة'}), 400
+            
+        extracted_url = decoded_objects[0].data.decode('utf-8')
+        
+        # فحص الرابط المستخرج مباشرة عبر خوارزمية NCA
+        score, status, warnings, normalized_url, redirect_info = evaluate_url_nca(extracted_url)
 
-        extracted_url = decoded_objects[0].data.decode('utf-8').strip()
-        is_safe, score, warnings = evaluate_url_nca(extracted_url)
-        return jsonify(build_payload(is_safe, score, warnings, extracted_url))
-    except Exception:
-        return jsonify(build_payload(False, 0, ["حدث خطأ أثناء معالجة وقراءة ملف الصورة."], "خطأ في قراءة الصورة"))
-
+        return jsonify({
+            'success': True,
+            'extracted_url': normalized_url,
+            'score': score,
+            'status': status,
+            'warnings': warnings,
+            'redirect_info': redirect_info
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'حدث خطأ أثناء معالجة الصورة: الحيوان المنوي أو الملف التالف {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
