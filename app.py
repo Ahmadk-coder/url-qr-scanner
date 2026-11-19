@@ -34,6 +34,7 @@ KNOWN_BRANDS = {
 
 SUSPICIOUS_TLDS = {'.xyz', '.top', '.club', '.online', '.site', '.info', '.biz', '.click', '.link', '.zip', '.mov'}
 DANGEROUS_FILE_EXTS = ('.exe', '.apk', '.bat', '.cmd', '.scr', '.vbs', '.ps1', '.msi', '.iso', '.zip', '.rar')
+IP_PATTERN = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
 
 
 def normalize_url(raw_url: str) -> str:
@@ -61,44 +62,48 @@ def check_dns_resolution(hostname: str) -> bool:
         return False
 
 
+def has_punycode(text: str) -> bool:
+    return bool(re.search(r'(^|[.@/])xn--', text.lower()))
+
+
 def analyze_html_sandbox(html_content: str, final_domain: str):
     """
     Logical & Stateless Sandbox:
-    Inspects raw HTML statically via BeautifulSoup without executing active scripts.
-    Differentiates between normal legitimate websites (blogs, news, stores) and malicious credential harvesters.
+    Inspects raw HTML statically via BeautifulSoup without executing scripts.
+    Focuses on real credential/exfiltration/evasion indicators.
     """
     deductions = 0
     findings = []
     soup = BeautifulSoup(html_content, 'html.parser')
 
-    # 1. Inspect forms & sensitive data collection (Passwords, National ID, Card numbers)
-    forms = soup.find_all('form')
+    # 1. Password fields on non-official domains
     password_inputs = soup.find_all('input', {'type': 'password'})
-
     if password_inputs:
         is_official = final_domain.endswith(('.gov.sa', '.edu.sa', '.org.sa', '.com.sa'))
         if not is_official:
             deductions += 25
-            findings.append("تنبيه سلوكي: الصفحة تطلب إدخال كلمة مرور (Password) ضمن نطاق تجاري عام.")
+            findings.append("حقل كلمة مرور على نطاق عام: الصفحة تطلب كلمة مرور خارج نطاق رسمي معروف؛ لا تدخل بيانات حساسة إلا بعد التحقق من مصدر الرابط.")
 
-    # Check if forms submit data to a completely different external domain (Data Exfiltration indicator)
+    # 2. Forms submitting to a different external domain
+    forms = soup.find_all('form')
     for form in forms:
         action = form.get('action', '').strip()
         if action.startswith(('http://', 'https://')):
             action_domain = urlparse(action).netloc.lower().split(':')[0]
             if action_domain and action_domain != final_domain and not action_domain.endswith('.' + final_domain):
                 deductions += 35
-                findings.append(f"تحذير خطير: نموذج الإدخال يرسل بيانات المستخدم إلى خادم خارجي مختلف ({action_domain}).")
+                findings.append(f"إرسال بيانات لنطاق خارجي ({action_domain}): النموذج يرسل المدخلات لخادم مختلف عن نطاق الصفحة؛ تجنب إدخال أي بيانات هنا.")
+                break
 
-    # 2. Check hidden iframes (Drive-by / Clickjacking indicator)
+    # 3. Hidden iframes
     for iframe in soup.find_all('iframe'):
         style = iframe.get('style', '').replace(' ', '').lower()
         if 'display:none' in style or 'visibility:hidden' in style or iframe.get('width') == '0' or iframe.get('height') == '0':
             deductions += 25
-            findings.append("تحذير هيكلي: تم اكتشاف إطار مخفي (Hidden Iframe) داخل كود الصفحة.")
+            findings.append("إطار مخفي (Hidden Iframe): توجد نافذة مضمنة مخفية داخل الصفحة قد تُستخدم للتحميل أو التتبع الخفي.")
             break
 
-    # 3. Check suspicious external scripts or obfuscated inline JS (eval / atob / document.write)
+    # 4. Obfuscated inline scripts
     obfuscation_hits = 0
     for script in soup.find_all('script'):
         script_text = script.string or ''
@@ -107,28 +112,26 @@ def analyze_html_sandbox(html_content: str, final_domain: str):
 
     if obfuscation_hits > 0:
         deductions += 25
-        findings.append("تحذير برمجي: وجود أكواد JavaScript مشفرة أو مموهة (Obfuscated Scripts) داخل الصفحة.")
+        findings.append("كود جافا سكريبت مموه: الصفحة تحتوي على دوال فك تشفير/تمويه شائعة في إخفاء السلوك البرمجي.")
 
-    # 4. Check meta refresh automatic redirects
+    # 5. Meta refresh auto-redirect
     meta_refresh = soup.find('meta', attrs={'http-equiv': re.compile(r'^refresh$', re.I)})
     if meta_refresh:
         content = meta_refresh.get('content', '').lower()
         if 'url=' in content:
             deductions += 20
-            findings.append("تحذير توجيه: الصفحة تستخدم إعادة توجيه تلقائية مخفية عبر وسم Meta Refresh.")
+            findings.append("إعادة توجيه تلقائية (Meta Refresh): الصفحة تحوّل المستخدم تلقائياً إلى وجهة أخرى.")
 
     return deductions, findings
 
 
 def evaluate_url_nca(raw_url: str):
     """
-    Comprehensive Multi-Layer Risk Scoring Model (NCA Aligned).
-    Fairly evaluates lesser-known legitimate sites (giving them high scores if clean)
-    while catching technical, structural, and behavioral threats.
+    Balanced Multi-Layer Risk Scoring Model:
+    Gives realistic results for clean sites and clear, actionable reasons on risky ones.
     """
     score = 100
     warnings = []
-    positive_notes = []
 
     url = normalize_url(raw_url)
     decoded_url = unquote(url)
@@ -137,57 +140,58 @@ def evaluate_url_nca(raw_url: str):
     path_lower = parsed.path.lower()
 
     if not domain or '.' not in domain:
-        return 0, "رابط غير صالح", ["صيغة الرابط المدخل غير صحيحة."], url, "لم يتم الفحص"
+        return 0, "رابط غير صالح", ["صيغة الرابط غير صحيحة؛ تأكد من كتابة اسم النطاق بشكل صحيح."], url, "لم يتم الفحص"
 
-    # Layer 1: DNS & Network Reachability
+    is_ip = bool(IP_PATTERN.match(domain))
+
+    # 1. DNS check
     if not check_dns_resolution(domain):
-        return 25, "موقع غير موجود أو معطل", ["فشل فحص DNS: النطاق غير مسجل أو لا يرتبط بأي خادم نشط."], url, "فشل الاتصال"
+        return 25, "نطاق غير نشط أو غير موجود", [
+            "تعذر حل اسم النطاق عبر DNS: الرابط قد يكون معطلاً أو غير مسجل أو كُتب بشكل خاطئ."
+        ], url, "فشل الاتصال"
 
-    # Layer 2: Transport Layer Security (HTTPS & SSL/TLS)
+    # 2. Transport security (HTTPS & SSL)
     if url.startswith('http://'):
-        score -= 40
-        warnings.append("مخالفة معايير التشفير (NCA): الموقع يستخدم بروتوكول HTTP غير المشفر.")
-    else:
-        if check_ssl_certificate(domain):
-            positive_notes.append("شهادة التشفير SSL/TLS صالحة ومفعلة.")
-        else:
-            score -= 30
-            warnings.append("تحذير شهادة الأمان: شهادة SSL/TLS غير صالحة أو منتهية الصلاحية.")
+        score -= 35
+        warnings.append("اتصال غير مشفر (HTTP): البيانات المرسلة لا تمر عبر HTTPS؛ لا تدخل كلمات مرور أو بيانات بنكية.")
+    elif not is_ip:
+        if not check_ssl_certificate(domain):
+            score -= 25
+            warnings.append("مشكلة في شهادة SSL/TLS: تعذر التحقق من شهادة الأمان للخادم؛ يُنصح بعدم متابعة العمليات الحساسة.")
 
-    # Layer 3: Direct Malicious Payload Check (Downloads)
+    # 3. Direct executable/archive download
     if path_lower.endswith(DANGEROUS_FILE_EXTS):
-        score -= 45
-        warnings.append("تحذير تحميل مباشر: الرابط يؤدي مباشرة إلى تحميل ملف تنفيذي أو مضغوط قد يحتوي برمجيات خبيثة.")
+        score -= 40
+        warnings.append("ملف قابل للتنفيذ أو مضغوط مباشرة: لا تشغّل الملف بعد تحميله إلا إذا كنت واثقاً تماماً من مصدره.")
 
-    # Layer 4: Lexical & Structural Obfuscation Checks
+    # 4. Lexical & structural checks
     if '@' in decoded_url:
         score -= 35
-        warnings.append("تمويه الرابط: وجود الرمز '@' يستخدم لإخفاء الوجهة الحقيقية للمستخدم.")
+        warnings.append("وجود رمز (@) في الرابط: يُستخدم أحياناً للتمويه وإيهام المستخدم بنطاق مختلف عن الوجهة الفعلية.")
 
-    if domain.startswith('xn--') or '.xn--' in domain:
+    if has_punycode(decoded_url):
         score -= 35
-        warnings.append("هجوم تشابه الأحرف (IDN Homograph): النطاق يستخدم ترميز Punycode لتقليد مواقع موثوقة.")
+        warnings.append("ترميز Punycode (xn--): قد يُستخدم لتقليد حروف متشابهة بصرياً؛ تحقق من عنوان الموقع يدوياً.")
 
-    ip_pattern = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
-    if ip_pattern.match(domain):
-        score -= 45
-        warnings.append("تحذير عالي: الرابط يستخدم عنوان IP مباشر بدلاً من اسم نطاق مسجل.")
+    if is_ip:
+        score -= 40
+        warnings.append("عنوان IP مباشر بدل اسم نطاق: الروابط المباشرة بأرقام IP شائعة في الصفحات غير الموثوقة أو المؤقتة.")
+    elif domain.count('.') >= 3 and not domain.endswith('.sa'):
+        score -= 15
+        warnings.append("نطاقات فرعية متعددة: كثرة النطاقات الفرعية قد تُستخدم لإخفاء النطاق الأساسي.")
 
-    if domain.count('.') >= 3 and not domain.endswith('.sa'):
+    if not is_ip and any(domain.endswith(tld) for tld in SUSPICIOUS_TLDS):
         score -= 20
-        warnings.append("بنية نطاق معقدة: كثرة النطاقات الفرعية (Subdomains) مؤشر شائع للتمويه.")
+        warnings.append("امتداد نطاق عالي المخاطر: هذا الامتداد يظهر بكثرة في الروابط المشبوهة؛ تعامل مع محتواه بحذر.")
 
-    if any(domain.endswith(tld) for tld in SUSPICIOUS_TLDS):
-        score -= 20
-        warnings.append("امتداد نطاق عالي المخاطر: النطاق ينتهي بامتداد شائع الاستخدام في حملات التصيد.")
+    # 5. Brand impersonation check
+    if not is_ip:
+        for brand, expected_suffix in KNOWN_BRANDS.items():
+            if brand in domain and not domain.endswith(expected_suffix):
+                score -= 45
+                warnings.append(f"احتمال انتحال جهة ({brand}): النطاق لا ينتهي بالامتداد المتوقع ({expected_suffix})؛ افتح الموقع الرسمي مباشرة من المتصفح.")
 
-    # Layer 5: Brand & Government Impersonation Check
-    for brand, expected_suffix in KNOWN_BRANDS.items():
-        if brand in domain and not domain.endswith(expected_suffix):
-            score -= 45
-            warnings.append(f"انتحال هوية محتمل: النطاق يحتوي على اسم ({brand}) ولكنه لا يتبع النطاق الرسمي ({expected_suffix}).")
-
-    # Layer 6: Redirect Chain & Deep Static Sandbox Inspection
+    # 6. Redirect chain & HTML sandbox inspection
     redirect_info = "مباشر (لا توجد إعادة توجيه)"
     final_url = url
     final_domain = domain
@@ -195,7 +199,7 @@ def evaluate_url_nca(raw_url: str):
 
     if is_shortener:
         score -= 15
-        warnings.append("رابط مختصر: تم استخدام خدمة تقصير روابط تخفي الوجهة الفعلية.")
+        warnings.append("رابط مختصر: الوجهة النهائية مخفية خلف خدمة اختصار؛ تأكد من موثوقية مرسل الرابط.")
 
     try:
         headers = {
@@ -209,11 +213,11 @@ def evaluate_url_nca(raw_url: str):
             redirect_info = f"تم التتبع عبر {len(response.history)} قفزة إلى: {final_domain}"
             if final_domain != domain and not final_domain.endswith('.' + domain):
                 score -= 20
-                warnings.append(f"تغيير الوجهة السلوكي: الرابط قام بإعادة توجيهك من ({domain}) إلى نطاق مختلف ({final_domain}).")
+                warnings.append(f"تغيير النطاق بعد التوجيه: انتقل الرابط من ({domain}) إلى ({final_domain})؛ راجع الوجهة النهائية قبل التفاعل.")
 
         if response.status_code >= 400:
-            score -= 15
-            warnings.append(f"تنبيه حالة الخادم: الخادم أعاد رمز خطأ HTTP ({response.status_code}).")
+            score -= 10
+            warnings.append(f"استجابة خادم غير طبيعية (HTTP {response.status_code}): الصفحة قد تكون مقيدة أو غير متاحة بشكل طبيعي.")
 
         if 'text/html' in response.headers.get('Content-Type', ''):
             sandbox_deductions, sandbox_findings = analyze_html_sandbox(response.text, final_domain)
@@ -221,14 +225,14 @@ def evaluate_url_nca(raw_url: str):
             warnings.extend(sandbox_findings)
 
     except requests.exceptions.Timeout:
-        score -= 25
-        warnings.append("انتهاء مهلة الاتصال (Sandbox Timeout): الخادم بطيء جداً أو لا يستجيب.")
+        score -= 20
+        warnings.append("تأخر استجابة الخادم (Timeout): الخادم لم يستجب خلال المهلة المحددة؛ قد يكون بطيئاً أو مقيداً للفحص الآلي.")
     except requests.exceptions.RequestException:
         if is_shortener:
-            warnings.append("ملاحظة: خادم اختصار الروابط يحجب الفحص الآلي، يُرجى التأكد من مصدر الرمز.")
+            warnings.append("ملاحظة: خدمة اختصار الروابط قيّدت الفحص الآلي؛ تحقق من مصدر الرابط قبل فتحه.")
         else:
-            score -= 30
-            warnings.append("تعذر فحص محتوى الصفحة: الخادم يحجب الفحص الآلي أو غير متاح حالياً.")
+            score -= 20
+            warnings.append("تعذر قراءة محتوى الصفحة: الخادم قد يمنع الفحص الآلي أو يواجه مشكلة مؤقتة.")
 
     score = max(0, min(100, score))
 
@@ -240,7 +244,7 @@ def evaluate_url_nca(raw_url: str):
         status = "الموقع خطير ومشبوه جداً"
 
     if not warnings:
-        warnings.append("تم اجتياز كافة الفحوصات (التشفير، DNS، الهيكل، والـ Sandbox): الموقع سليم ولا يظهر سلوكاً ضاراً حتى لو كان غير مشهور.")
+        warnings.append("لا توجد مؤشرات خطورة واضحة في الفحص الهيكلي أو السلوكي أو محتوى الصفحة؛ مع ذلك يظل الحذر مطلوباً عند إدخال أي بيانات.")
 
     return score, status, warnings, final_url, redirect_info
 
