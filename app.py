@@ -56,7 +56,7 @@ def check_ssl_certificate(hostname: str) -> bool:
 
 def check_dns_resolution(hostname: str) -> bool:
     try:
-        socket.gethostbyname(hostname)
+        socket.getaddrinfo(hostname, None)
         return True
     except Exception:
         return False
@@ -128,7 +128,7 @@ def analyze_html_sandbox(html_content: str, final_domain: str):
 def evaluate_url_nca(raw_url: str):
     """
     Balanced Multi-Layer Risk Scoring Model:
-    Gives realistic results for clean sites and clear, actionable reasons on risky ones.
+    Evaluates URL structure, brand impersonation, DNS/SSL, redirects, and static HTML sandbox.
     """
     score = 100
     warnings = []
@@ -143,28 +143,14 @@ def evaluate_url_nca(raw_url: str):
         return 0, "رابط غير صالح", ["صيغة الرابط غير صحيحة؛ تأكد من كتابة اسم النطاق بشكل صحيح."], url, "لم يتم الفحص"
 
     is_ip = bool(IP_PATTERN.match(domain))
+    dns_ok = check_dns_resolution(domain)
 
-    # 1. DNS check
-    if not check_dns_resolution(domain):
-        return 25, "نطاق غير نشط أو غير موجود", [
-            "تعذر حل اسم النطاق عبر DNS: الرابط قد يكون معطلاً أو غير مسجل أو كُتب بشكل خاطئ."
-        ], url, "فشل الاتصال"
-
-    # 2. Transport security (HTTPS & SSL)
-    if url.startswith('http://'):
-        score -= 35
-        warnings.append("اتصال غير مشفر (HTTP): البيانات المرسلة لا تمر عبر HTTPS؛ لا تدخل كلمات مرور أو بيانات بنكية.")
-    elif not is_ip:
-        if not check_ssl_certificate(domain):
-            score -= 25
-            warnings.append("مشكلة في شهادة SSL/TLS: تعذر التحقق من شهادة الأمان للخادم؛ يُنصح بعدم متابعة العمليات الحساسة.")
-
-    # 3. Direct executable/archive download
+    # 1. Direct executable/archive download
     if path_lower.endswith(DANGEROUS_FILE_EXTS):
         score -= 40
         warnings.append("ملف قابل للتنفيذ أو مضغوط مباشرة: لا تشغّل الملف بعد تحميله إلا إذا كنت واثقاً تماماً من مصدره.")
 
-    # 4. Lexical & structural checks
+    # 2. Lexical & structural checks
     if '@' in decoded_url:
         score -= 35
         warnings.append("وجود رمز (@) في الرابط: يُستخدم أحياناً للتمويه وإيهام المستخدم بنطاق مختلف عن الوجهة الفعلية.")
@@ -184,22 +170,39 @@ def evaluate_url_nca(raw_url: str):
         score -= 20
         warnings.append("امتداد نطاق عالي المخاطر: هذا الامتداد يظهر بكثرة في الروابط المشبوهة؛ تعامل مع محتواه بحذر.")
 
-    # 5. Brand impersonation check
+    # 3. Brand impersonation check
     if not is_ip:
         for brand, expected_suffix in KNOWN_BRANDS.items():
             if brand in domain and not domain.endswith(expected_suffix):
                 score -= 45
                 warnings.append(f"احتمال انتحال جهة ({brand}): النطاق لا ينتهي بالامتداد المتوقع ({expected_suffix})؛ افتح الموقع الرسمي مباشرة من المتصفح.")
 
+    # 4. Shortener check
+    is_shortener = any(domain == s or domain.endswith('.' + s) for s in SHORTENER_DOMAINS)
+    if is_shortener:
+        score -= 15
+        warnings.append("رابط مختصر: الوجهة النهائية مخفية خلف خدمة اختصار؛ تأكد من موثوقية مرسل الرابط.")
+
+    # 5. DNS & Transport security (HTTPS & SSL)
+    if not dns_ok:
+        score -= 35
+        warnings.append("تعذر حل اسم النطاق عبر DNS: النطاق قد يكون غير مسجل أو معطلاً أو كُتب بشكل خاطئ.")
+        score = max(0, min(100, score))
+        status = "الموقع خطير ومشبوه جداً" if score < 50 else "الموقع مشبوه ويحتاج الحذر"
+        return score, status, warnings, url, "تعذر الوصول (DNS)"
+
+    if url.startswith('http://'):
+        score -= 35
+        warnings.append("اتصال غير مشفر (HTTP): البيانات المرسلة لا تمر عبر HTTPS؛ لا تدخل كلمات مرور أو بيانات بنكية.")
+    elif not is_ip:
+        if not check_ssl_certificate(domain):
+            score -= 25
+            warnings.append("مشكلة في شهادة SSL/TLS: تعذر التحقق من شهادة الأمان للخادم؛ يُنصح بعدم متابعة العمليات الحساسة.")
+
     # 6. Redirect chain & HTML sandbox inspection
     redirect_info = "مباشر (لا توجد إعادة توجيه)"
     final_url = url
     final_domain = domain
-    is_shortener = any(domain == s or domain.endswith('.' + s) for s in SHORTENER_DOMAINS)
-
-    if is_shortener:
-        score -= 15
-        warnings.append("رابط مختصر: الوجهة النهائية مخفية خلف خدمة اختصار؛ تأكد من موثوقية مرسل الرابط.")
 
     try:
         headers = {
